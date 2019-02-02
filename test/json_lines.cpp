@@ -5,7 +5,6 @@
 using namespace essentials;
 
 int main() {
-
     json_lines jl;
 
     jl.add("sum", "13");

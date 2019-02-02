@@ -5,9 +5,7 @@
 
 using namespace essentials;
 
-std::vector<uint64_t>
-random_sequence(uint64_t n, uint64_t u)
-{
+std::vector<uint64_t> random_sequence(uint64_t n, uint64_t u) {
     std::vector<uint64_t> vec;
     vec.reserve(n);
     std::mt19937_64 rng;
@@ -20,7 +18,6 @@ random_sequence(uint64_t n, uint64_t u)
 }
 
 int main() {
-
     timer_type t;
 
     const uint64_t runs = 50;
@@ -32,7 +29,7 @@ int main() {
 
     for (uint64_t run = 0; run != runs; ++run) {
         t.start();
-        for (auto i: queries) {
+        for (auto i : queries) {
             do_not_optimize_away(sequence[i]);
         }
         t.stop();
@@ -41,7 +38,8 @@ int main() {
     t.discard_min_max();
     double avg = t.average();
 
-    std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den << " [sec]\n";
+    std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den
+              << " [sec]\n";
     std::cout << "\tMean per query: " << avg / m << " [musec]";
     std::cout << std::endl;
 
