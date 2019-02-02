@@ -23,3 +23,4 @@ if(UNIX)
 endif()
 
 add_executable(json_lines json_lines.cpp)
+add_executable(timer timer.cpp)

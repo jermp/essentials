@@ -7,5 +7,7 @@ See the `test/` folder for examples.
 To compile the examples, move into the folder and just
 type the following commands.
 
-	$ cmake .
+    $ mkdir build
+    $ cd build
+	$ cmake ..
 	$ make
