@@ -1,5 +1,4 @@
 #include <iostream>
-#include <random>
 
 #include "../include/essentials.hpp"
 
@@ -8,11 +7,9 @@ using namespace essentials;
 std::vector<uint64_t> random_sequence(uint64_t n, uint64_t u) {
     std::vector<uint64_t> vec;
     vec.reserve(n);
-    std::mt19937_64 rng;
-    std::uniform_int_distribution<uint64_t> values_distribution(0, u);
-    auto dice = bind(values_distribution, rng);
+    uniform_int_rng<uint64_t> r(0, u);
     for (uint64_t i = 0; i != n; ++i) {
-        vec.push_back(dice());
+        vec.push_back(r.gen());
     }
     return vec;
 }

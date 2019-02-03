@@ -4,6 +4,7 @@
 #include <chrono>
 #include <fstream>
 #include <numeric>
+#include <random>
 #include <type_traits>
 #include <vector>
 
@@ -25,7 +26,7 @@ void check_if_pod() {
 }
 
 template <typename Vec>
-size_t vector_bytes(Vec const &vec) {
+size_t vector_bytes(Vec const& vec) {
     return vec.size() * sizeof(vec.front()) + sizeof(typename Vec::size_type);
 }
 
@@ -35,10 +36,12 @@ size_t pod_bytes(T pod) {
     return sizeof(pod);
 }
 
-size_t file_size(char const *filename) {
+size_t file_size(char const* filename) {
     std::ifstream is(filename, std::ios::binary | std::ios::ate);
     if (!is.good()) {
-        throw std::runtime_error("Error in opening binary file.");
+        throw std::runtime_error(
+            "Error in opening binary "
+            "file.");
     }
     size_t bytes = (size_t)is.tellg();
     is.close();
@@ -52,45 +55,46 @@ uint64_t words_for(uint64_t bits) {
 }
 
 template <typename T>
-inline void do_not_optimize_away(T &&datum) {
+inline void do_not_optimize_away(T&& datum) {
     asm volatile("" : "+r"(datum));
 }
 
 template <typename T>
-void save_pod(std::ostream &os, T const *val) {
+void save_pod(std::ostream& os, T const* val) {
     check_if_pod<T>();
-    os.write(reinterpret_cast<char const *>(val), sizeof(T));
+    os.write(reinterpret_cast<char const*>(val), sizeof(T));
 }
 
 template <typename T>
-void load_pod(std::istream &is, T *val) {
+void load_pod(std::istream& is, T* val) {
     check_if_pod<T>();
-    is.read(reinterpret_cast<char *>(val), sizeof(T));
+    is.read(reinterpret_cast<char*>(val), sizeof(T));
 }
 
 template <typename T>
-void save_vec(std::ostream &os, std::vector<T> const &vec) {
+void save_vec(std::ostream& os, std::vector<T> const& vec) {
     check_if_pod<T>();
     size_t n = vec.size();
     save_pod(os, &n);
-    os.write(reinterpret_cast<char const *>(vec.data()),
+    os.write(reinterpret_cast<char const*>(vec.data()),
              static_cast<std::streamsize>(sizeof(T) * n));
 }
 
 template <typename T>
-void load_vec(std::istream &is, std::vector<T> &vec) {
+void load_vec(std::istream& is, std::vector<T>& vec) {
     size_t n;
     load_pod(is, &n);
     vec.resize(n);
-    is.read(reinterpret_cast<char *>(vec.data()),
+    is.read(reinterpret_cast<char*>(vec.data()),
             static_cast<std::streamsize>(sizeof(T) * n));
 }
 
 template <typename T>
-void save(T const &data_structure, char const *output_filename) {
+void save(T const& data_structure, char const* output_filename) {
     if (output_filename == nullptr) {
         throw std::runtime_error(
-            "You must specify the name of the output file.");
+            "You must specify the name "
+            "of the output file.");
     }
     std::ofstream os(output_filename, std::ios::binary);
     data_structure.save(os);
@@ -98,19 +102,22 @@ void save(T const &data_structure, char const *output_filename) {
 }
 
 template <typename T>
-void load(T &data_structure, char const *binary_filename) {
+size_t load(T& data_structure, char const* binary_filename) {
     std::ifstream is(binary_filename, std::ios::binary);
     if (!is.good()) {
-        throw std::runtime_error("Error in opening binary file.");
+        throw std::runtime_error(
+            "Error in opening binary "
+            "file.");
     }
     data_structure.load(is);
+    size_t bytes = (size_t)is.tellg();
     is.close();
+    return bytes;
 }
 
 struct json_lines {
     struct property {
-        property(std::string n, std::string v) : name(n), value(v) {
-        }
+        property(std::string n, std::string v) : name(n), value(v) {}
 
         std::string name;
         std::string value;
@@ -127,7 +134,7 @@ struct json_lines {
         m_properties.back().emplace_back(name, value);
     }
 
-    void save_to_file(char const *filename) const {
+    void save_to_file(char const* filename) const {
         std::ofstream out(filename);
         print_to(out);
         out.close();
@@ -141,11 +148,11 @@ private:
     std::vector<std::vector<property>> m_properties;
 
     template <typename T>
-    void print_to(T &device) const {
-        for (auto const &properties : m_properties) {
+    void print_to(T& device) const {
+        for (auto const& properties : m_properties) {
             device << "{";
             for (uint64_t i = 0; i != properties.size(); ++i) {
-                auto const &p = properties[i];
+                auto const& p = properties[i];
                 device << "\"" << p.name << "\": \"" << p.value << "\"";
                 if (i != properties.size() - 1) {
                     device << ", ";
@@ -198,6 +205,20 @@ private:
 
 typedef timer<clock_type, duration_type> timer_type;
 
-// TODO: function to visit a data structure recursively to compute the size
-// breakdowns of its components
+template <typename IntType>
+struct uniform_int_rng {
+    uniform_int_rng(size_t from, size_t to) : m_distr(from, to) {}
+
+    IntType gen() {
+        return m_distr(m_rng);
+    }
+
+private:
+    std::mt19937_64 m_rng;
+    std::uniform_int_distribution<IntType> m_distr;
+};
+
+// TODO: function to visit a data
+// structure recursively to compute the
+// size breakdowns of its components
 }  // namespace essentials

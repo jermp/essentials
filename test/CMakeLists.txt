@@ -24,3 +24,4 @@ endif()
 
 add_executable(json_lines json_lines.cpp)
 add_executable(timer timer.cpp)
+add_executable(data_structure data_structure.cpp)
