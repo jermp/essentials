@@ -158,6 +158,10 @@ struct timer {
         return m_timings.size();
     }
 
+    void reset() {
+        m_timings.clear();
+    }
+
     void discard_min_max() {
         if (runs() > 1) {
             m_timings.erase(

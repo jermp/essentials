@@ -23,6 +23,7 @@ int main() {
     const uint64_t u = 100000000;
     auto sequence = random_sequence(n, u);
     auto queries = random_sequence(m, n);
+    double avg = 0.0;
 
     for (uint64_t run = 0; run != runs; ++run) {
         t.start();
@@ -33,7 +34,27 @@ int main() {
     }
 
     t.discard_min_max();
-    double avg = t.average();
+    avg = t.average();
+
+    std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den
+              << " [sec]\n";
+    std::cout << "\tMean per query: " << avg / m << " [musec]";
+    std::cout << std::endl;
+
+    // reset and peform another experiment
+    t.reset();
+    assert(t.runs() == 0);
+
+    for (uint64_t run = 0; run != runs / 10; ++run) {
+        t.start();
+        for (auto i : queries) {
+            do_not_optimize_away(sequence[i]);
+        }
+        t.stop();
+    }
+
+    t.discard_min_max();
+    avg = t.average();
 
     std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den
               << " [sec]\n";
