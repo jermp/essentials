@@ -35,7 +35,13 @@ private:
 
 template <typename T>
 struct collection {
-    collection() {}
+    collection() {
+        int n = 13;
+        x.reserve(n);
+        for (int i = 0; i != n; ++i) {
+            x.push_back(i);
+        }
+    }
 
     void resize(size_t n) {
         m_data.resize(n);
@@ -57,10 +63,12 @@ struct collection {
 
     template <typename Visitor>
     void visit(Visitor& visitor) {
+        visitor.visit(x);
         visitor.visit(m_data);
     }
 
 private:
+    basic<uint32_t> x;
     std::vector<basic<T>> m_data;
 };
 

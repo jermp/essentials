@@ -210,8 +210,13 @@ struct loader {
     }
 
     template <typename T>
-    void visit(T& val) {
+    typename std::enable_if<std::is_pod<T>::value, void>::type visit(T& val) {
         load_pod(m_is, val);
+    }
+
+    template <typename T>
+    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(T& val) {
+        val.visit(*this);
     }
 
     template <typename T>
@@ -253,8 +258,13 @@ struct saver {
     }
 
     template <typename T>
-    void visit(T& val) {
+    typename std::enable_if<std::is_pod<T>::value, void>::type visit(T& val) {
         save_pod(m_os, val);
+    }
+
+    template <typename T>
+    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(T& val) {
+        val.visit(*this);
     }
 
     template <typename T>
@@ -293,10 +303,15 @@ struct sizer {
     };
 
     template <typename T>
-    void visit(T& val) {
+    typename std::enable_if<std::is_pod<T>::value, void>::type visit(T& val) {
         node n(pod_bytes(val), m_current->depth + 1);
         m_current->children.push_back(n);
         m_current->bytes += n.bytes;
+    }
+
+    template <typename T>
+    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(T& val) {
+        val.visit(*this);
     }
 
     template <typename T>
