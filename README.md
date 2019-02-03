@@ -1,6 +1,6 @@
 Essentials
 ----------
-A header-only collection of some essential utilities that I use extensively for data structure design.
+A self-contained, header-only, collection of some essential C++ utilities that I use extensively for data structure design.
 
 Meant to be used in larger projects.
 
