@@ -29,13 +29,13 @@ void check_if_pod() {
     }
 }
 
-template <typename Vec>
-size_t vec_bytes(Vec const& vec) {
-    return vec.size() * sizeof(vec.front()) + sizeof(typename Vec::size_type);
+template <typename T>
+size_t vec_bytes(T const& vec) {
+    return vec.size() * sizeof(vec.front()) + sizeof(typename T::size_type);
 }
 
 template <typename T>
-size_t pod_bytes(T pod) {
+size_t pod_bytes(T const& pod) {
     check_if_pod<T>();
     return sizeof(pod);
 }
@@ -200,6 +200,9 @@ private:
     std::uniform_int_distribution<IntType> m_distr;
 };
 
+#define is_pod(T) typename std::enable_if<std::is_pod<T>::value>::type
+#define is_not_pod(T) typename std::enable_if<!std::is_pod<T>::value>::type
+
 struct loader {
     loader(char const* filename) : m_is(filename, std::ios::binary) {
         if (!m_is.good()) {
@@ -214,24 +217,22 @@ struct loader {
     }
 
     template <typename T>
-    typename std::enable_if<std::is_pod<T>::value, void>::type visit(T& val) {
+    is_pod(T) visit(T& val) {
         load_pod(m_is, val);
     }
 
     template <typename T>
-    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(T& val) {
+    is_not_pod(T) visit(T& val) {
         val.visit(*this);
     }
 
     template <typename T>
-    typename std::enable_if<std::is_pod<T>::value, void>::type visit(
-        std::vector<T>& vec) {
+    is_pod(T) visit(std::vector<T>& vec) {
         load_vec(m_is, vec);
     }
 
     template <typename T>
-    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(
-        std::vector<T>& vec) {
+    is_not_pod(T) visit(std::vector<T>& vec) {
         size_t n;
         visit(n);
         vec.resize(n);
@@ -262,24 +263,22 @@ struct saver {
     }
 
     template <typename T>
-    typename std::enable_if<std::is_pod<T>::value, void>::type visit(T& val) {
+    is_pod(T) visit(T& val) {
         save_pod(m_os, val);
     }
 
     template <typename T>
-    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(T& val) {
+    is_not_pod(T) visit(T& val) {
         val.visit(*this);
     }
 
     template <typename T>
-    typename std::enable_if<std::is_pod<T>::value, void>::type visit(
-        std::vector<T>& vec) {
+    is_pod(T) visit(std::vector<T>& vec) {
         save_vec(m_os, vec);
     }
 
     template <typename T>
-    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(
-        std::vector<T>& vec) {
+    is_not_pod(T) visit(std::vector<T>& vec) {
         size_t n = vec.size();
         visit(n);
         for (auto& v : vec) {
@@ -307,28 +306,26 @@ struct sizer {
     };
 
     template <typename T>
-    typename std::enable_if<std::is_pod<T>::value, void>::type visit(T& val) {
+    is_pod(T) visit(T& val) {
         node n(pod_bytes(val), m_current->depth + 1);
         m_current->children.push_back(n);
         m_current->bytes += n.bytes;
     }
 
     template <typename T>
-    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(T& val) {
+    is_not_pod(T) visit(T& val) {
         val.visit(*this);
     }
 
     template <typename T>
-    typename std::enable_if<std::is_pod<T>::value, void>::type visit(
-        std::vector<T>& vec) {
+    is_pod(T) visit(std::vector<T>& vec) {
         node n(vec_bytes(vec), m_current->depth + 1);
         m_current->children.push_back(n);
         m_current->bytes += n.bytes;
     }
 
     template <typename T>
-    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(
-        std::vector<T>& vec) {
+    is_not_pod(T) visit(std::vector<T>& vec) {
         size_t n = vec.size();
         m_current->bytes += pod_bytes(n);
         node* parent = m_current;
