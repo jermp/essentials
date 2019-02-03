@@ -322,18 +322,19 @@ struct sizer {
         }
     }
 
-    void print(node const& n, size_t total_bytes) const {
+    template <typename Device>
+    void print(node const& n, size_t total_bytes, Device& device) const {
         auto indent = std::string(n.depth * 4, ' ');
-        std::cout << indent << "bytes = " << n.bytes << " ("
-                  << n.bytes * 100.0 / total_bytes << "%)" << std::endl;
-        for (auto const& c : n.children) {
-            std::cout << indent;
-            print(c, total_bytes);
+        device << indent << "bytes = " << n.bytes << " ("
+               << n.bytes * 100.0 / total_bytes << "%)" << std::endl;
+        for (auto const& child : n.children) {
+            device << indent;
+            print(child, total_bytes, device);
         }
     }
 
     void print() const {
-        print(m_root, bytes());
+        print(m_root, bytes(), std::cerr);
     }
 
     size_t bytes() const {
