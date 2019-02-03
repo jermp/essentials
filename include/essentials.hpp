@@ -30,7 +30,7 @@ void check_if_pod() {
 }
 
 template <typename Vec>
-size_t vector_bytes(Vec const& vec) {
+size_t vec_bytes(Vec const& vec) {
     return vec.size() * sizeof(vec.front()) + sizeof(typename Vec::size_type);
 }
 
@@ -281,6 +281,70 @@ private:
     std::ofstream m_os;
 };
 
+struct sizer {
+    sizer() : m_root(0, 0), m_current(&m_root) {}
+
+    struct node {
+        node(size_t b, size_t d) : bytes(b), depth(d) {}
+
+        size_t bytes;
+        size_t depth;
+        std::vector<node> children;
+    };
+
+    template <typename T>
+    void visit(T& val) {
+        node n(pod_bytes(val), m_current->depth + 1);
+        m_current->children.push_back(n);
+        m_current->bytes += n.bytes;
+    }
+
+    template <typename T>
+    typename std::enable_if<std::is_pod<T>::value, void>::type visit(
+        std::vector<T>& vec) {
+        node n(vec_bytes(vec), m_current->depth + 1);
+        m_current->children.push_back(n);
+        m_current->bytes += n.bytes;
+    }
+
+    template <typename T>
+    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(
+        std::vector<T>& vec) {
+        size_t n = vec.size();
+        m_current->bytes += pod_bytes(n);
+        node* parent = m_current;
+        for (auto& v : vec) {
+            node n(0, parent->depth + 1);
+            parent->children.push_back(n);
+            m_current = &parent->children.back();
+            v.visit(*this);
+            parent->bytes += m_current->bytes;
+        }
+    }
+
+    void print(node const& n, size_t total_bytes) const {
+        auto indent = std::string(n.depth * 4, ' ');
+        std::cout << indent << "bytes = " << n.bytes << " ("
+                  << n.bytes * 100.0 / total_bytes << "%)" << std::endl;
+        for (auto const& c : n.children) {
+            std::cout << indent;
+            print(c, total_bytes);
+        }
+    }
+
+    void print() const {
+        print(m_root, bytes());
+    }
+
+    size_t bytes() const {
+        return m_root.bytes;
+    }
+
+private:
+    node m_root;
+    node* m_current;
+};
+
 template <typename Data, typename Visitor>
 size_t visit(Data& structure, char const* filename) {
     Visitor visitor(filename);
@@ -296,6 +360,13 @@ size_t load(Data& structure, char const* filename) {
 template <typename Data>
 size_t save(Data& structure, char const* filename) {
     return visit<Data, saver>(structure, filename);
+}
+
+template <typename Data>
+void print_size(Data& structure) {
+    sizer visitor;
+    structure.visit(visitor);
+    visitor.print();
 }
 
 }  // namespace essentials

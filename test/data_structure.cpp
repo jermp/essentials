@@ -24,10 +24,12 @@ struct basic {
 
     template <typename Visitor>
     void visit(Visitor& visitor) {
+        visitor.visit(x);
         visitor.visit(m_data);
     }
 
 private:
+    int x = 10;
     std::vector<T> m_data;
 };
 
@@ -91,6 +93,7 @@ int main() {
         std::cout << convert(read_bytes, KB) << " [KB]" << std::endl;
         std::cout << convert(read_bytes, KiB) << " [KiB]" << std::endl;
         std::remove(input_filename);
+        print_size(my_ds);
     }
 
     return 0;
