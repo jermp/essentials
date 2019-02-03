@@ -17,6 +17,10 @@ static const uint64_t GB = 1000 * 1000 * 1000;
 static const uint64_t GiB = uint64_t(1) << 30;
 static const uint64_t MB = 1000 * 1000;
 static const uint64_t MiB = uint64_t(1) << 20;
+static const uint64_t KB = 1000;
+static const uint64_t KiB = uint64_t(1) << 10;
+
+#define convert(bytes, UNIT) static_cast<double>(bytes) / UNIT
 
 template <typename T>
 void check_if_pod() {

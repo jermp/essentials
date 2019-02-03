@@ -115,6 +115,8 @@ int main() {
         char const* input_filename = "./my_ds.bin";
         size_t read_bytes = load(my_ds, input_filename);
         std::cout << "read bytes = " << read_bytes << std::endl;
+        std::cout << convert(read_bytes, KB) << " [KB]" << std::endl;
+        std::cout << convert(read_bytes, KiB) << " [KiB]" << std::endl;
         std::remove(input_filename);
     }
 
