@@ -18,36 +18,25 @@ struct basic {
         m_data.push_back(val);
     }
 
-    void shrink_to_size() {
-        m_data.shrink_to_size();
-    }
-
     size_t size() const {
-        return m_size;
+        return m_data.size();
     }
 
-    void save(std::ostream& os) const {
-        save_pod(os, &m_size);
-        save_vec(os, m_data);
-    }
-
-    void load(std::istream& is) {
-        load_pod(is, &m_size);
-        load_vec(is, m_data);
+    template <typename Visitor>
+    void visit(Visitor& visitor) {
+        visitor.visit(m_data);
     }
 
 private:
-    size_t m_size;
     std::vector<T> m_data;
 };
 
 template <typename T>
 struct collection {
-    collection() : m_size(0) {}
+    collection() {}
 
     void resize(size_t n) {
         m_data.resize(n);
-        m_size = m_data.size();
     }
 
     void reserve(uint32_t index, size_t n) {
@@ -60,33 +49,16 @@ struct collection {
         m_data[index].push_back(val);
     }
 
-    void shrink_to_size() {
-        for (auto& d : m_data) {
-            d.shrink_to_size();
-        }
-    }
-
     size_t size() const {
-        return m_size;
+        return m_data.size();
     }
 
-    void save(std::ostream& os) const {
-        save_pod(os, &m_size);
-        for (auto const& d : m_data) {
-            d.save(os);
-        }
-    }
-
-    void load(std::istream& is) {
-        load_pod(is, &m_size);
-        resize(m_size);
-        for (auto& d : m_data) {
-            d.load(is);
-        }
+    template <typename Visitor>
+    void visit(Visitor& visitor) {
+        visitor.visit(m_data);
     }
 
 private:
-    size_t m_size;
     std::vector<basic<T>> m_data;
 };
 
@@ -107,7 +79,8 @@ int main() {
         }
 
         char const* output_filename = "./my_ds.bin";
-        save(my_ds, output_filename);
+        size_t written_bytes = save(my_ds, output_filename);
+        std::cout << "written bytes = " << written_bytes << std::endl;
     }
 
     {

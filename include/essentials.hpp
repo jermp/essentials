@@ -64,59 +64,33 @@ inline void do_not_optimize_away(T&& datum) {
 }
 
 template <typename T>
-void save_pod(std::ostream& os, T const* val) {
+void load_pod(std::istream& is, T& val) {
     check_if_pod<T>();
-    os.write(reinterpret_cast<char const*>(val), sizeof(T));
-}
-
-template <typename T>
-void load_pod(std::istream& is, T* val) {
-    check_if_pod<T>();
-    is.read(reinterpret_cast<char*>(val), sizeof(T));
-}
-
-template <typename T>
-void save_vec(std::ostream& os, std::vector<T> const& vec) {
-    check_if_pod<T>();
-    size_t n = vec.size();
-    save_pod(os, &n);
-    os.write(reinterpret_cast<char const*>(vec.data()),
-             static_cast<std::streamsize>(sizeof(T) * n));
+    is.read(reinterpret_cast<char*>(&val), sizeof(T));
 }
 
 template <typename T>
 void load_vec(std::istream& is, std::vector<T>& vec) {
     size_t n;
-    load_pod(is, &n);
+    load_pod(is, n);
     vec.resize(n);
     is.read(reinterpret_cast<char*>(vec.data()),
             static_cast<std::streamsize>(sizeof(T) * n));
 }
 
 template <typename T>
-void save(T const& data_structure, char const* output_filename) {
-    if (output_filename == nullptr) {
-        throw std::runtime_error(
-            "You must specify the name "
-            "of the output file.");
-    }
-    std::ofstream os(output_filename, std::ios::binary);
-    data_structure.save(os);
-    os.close();
+void save_pod(std::ostream& os, T const& val) {
+    check_if_pod<T>();
+    os.write(reinterpret_cast<char const*>(&val), sizeof(T));
 }
 
 template <typename T>
-size_t load(T& data_structure, char const* binary_filename) {
-    std::ifstream is(binary_filename, std::ios::binary);
-    if (!is.good()) {
-        throw std::runtime_error(
-            "Error in opening binary "
-            "file.");
-    }
-    data_structure.load(is);
-    size_t bytes = (size_t)is.tellg();
-    is.close();
-    return bytes;
+void save_vec(std::ostream& os, std::vector<T> const& vec) {
+    check_if_pod<T>();
+    size_t n = vec.size();
+    save_pod(os, n);
+    os.write(reinterpret_cast<char const*>(vec.data()),
+             static_cast<std::streamsize>(sizeof(T) * n));
 }
 
 struct json_lines {
@@ -222,7 +196,106 @@ private:
     std::uniform_int_distribution<IntType> m_distr;
 };
 
-// TODO: function to visit a data
-// structure recursively to compute the
-// size breakdowns of its components
+struct loader {
+    loader(char const* filename) : m_is(filename, std::ios::binary) {
+        if (!m_is.good()) {
+            throw std::runtime_error(
+                "Error in opening binary "
+                "file.");
+        }
+    }
+
+    ~loader() {
+        m_is.close();
+    }
+
+    template <typename T>
+    void visit(T& val) {
+        load_pod(m_is, val);
+    }
+
+    template <typename T>
+    typename std::enable_if<std::is_pod<T>::value, void>::type visit(
+        std::vector<T>& vec) {
+        load_vec(m_is, vec);
+    }
+
+    template <typename T>
+    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(
+        std::vector<T>& vec) {
+        size_t n;
+        visit(n);
+        vec.resize(n);
+        for (auto& v : vec) {
+            v.visit(*this);
+        }
+    }
+
+    size_t bytes() {
+        return m_is.tellg();
+    }
+
+private:
+    std::ifstream m_is;
+};
+
+struct saver {
+    saver(char const* filename) : m_os(filename, std::ios::binary) {
+        if (!m_os.good()) {
+            throw std::runtime_error(
+                "Error in opening binary "
+                "file.");
+        }
+    }
+
+    ~saver() {
+        m_os.close();
+    }
+
+    template <typename T>
+    void visit(T& val) {
+        save_pod(m_os, val);
+    }
+
+    template <typename T>
+    typename std::enable_if<std::is_pod<T>::value, void>::type visit(
+        std::vector<T>& vec) {
+        save_vec(m_os, vec);
+    }
+
+    template <typename T>
+    typename std::enable_if<!std::is_pod<T>::value, void>::type visit(
+        std::vector<T>& vec) {
+        size_t n = vec.size();
+        visit(n);
+        for (auto& v : vec) {
+            v.visit(*this);
+        }
+    }
+
+    size_t bytes() {
+        return m_os.tellp();
+    }
+
+private:
+    std::ofstream m_os;
+};
+
+template <typename Data, typename Visitor>
+size_t visit(Data& structure, char const* filename) {
+    Visitor visitor(filename);
+    structure.visit(visitor);
+    return visitor.bytes();
+}
+
+template <typename Data>
+size_t load(Data& structure, char const* filename) {
+    return visit<Data, loader>(structure, filename);
+}
+
+template <typename Data>
+size_t save(Data& structure, char const* filename) {
+    return visit<Data, saver>(structure, filename);
+}
+
 }  // namespace essentials
