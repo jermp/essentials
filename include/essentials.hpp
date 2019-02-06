@@ -295,19 +295,22 @@ private:
 };
 
 struct sizer {
-    sizer() : m_root(0, 0), m_current(&m_root) {}
+    sizer(std::string const& root_name = "")
+        : m_root(0, 0, root_name), m_current(&m_root) {}
 
     struct node {
-        node(size_t b, size_t d) : bytes(b), depth(d) {}
+        node(size_t b, size_t d, std::string const& n = "")
+            : bytes(b), depth(d), name(n) {}
 
         size_t bytes;
         size_t depth;
+        std::string name;
         std::vector<node> children;
     };
 
     template <typename T>
     is_pod(T) visit(T& val) {
-        node n(pod_bytes(val), m_current->depth + 1);
+        node n(pod_bytes(val), m_current->depth + 1, typeid(T).name());
         m_current->children.push_back(n);
         m_current->bytes += n.bytes;
     }
@@ -319,7 +322,8 @@ struct sizer {
 
     template <typename T>
     is_pod(T) visit(std::vector<T>& vec) {
-        node n(vec_bytes(vec), m_current->depth + 1);
+        node n(vec_bytes(vec), m_current->depth + 1,
+               typeid(std::vector<T>).name());
         m_current->children.push_back(n);
         m_current->bytes += n.bytes;
     }
@@ -330,7 +334,7 @@ struct sizer {
         m_current->bytes += pod_bytes(n);
         node* parent = m_current;
         for (auto& v : vec) {
-            node n(0, parent->depth + 1);
+            node n(0, parent->depth + 1, typeid(T).name());
             parent->children.push_back(n);
             m_current = &parent->children.back();
             v.visit(*this);
@@ -341,7 +345,7 @@ struct sizer {
     template <typename Device>
     void print(node const& n, size_t total_bytes, Device& device) const {
         auto indent = std::string(n.depth * 4, ' ');
-        device << indent << "bytes = " << n.bytes << " ("
+        device << indent << "'" << n.name << "' - bytes = " << n.bytes << " ("
                << n.bytes * 100.0 / total_bytes << "%)" << std::endl;
         for (auto const& child : n.children) {
             device << indent;
@@ -365,7 +369,7 @@ private:
 template <typename Data, typename Visitor>
 size_t visit(Data& structure, char const* filename) {
     Visitor visitor(filename);
-    structure.visit(visitor);
+    visitor.visit(structure);
     return visitor.bytes();
 }
 
@@ -381,8 +385,8 @@ size_t save(Data& structure, char const* filename) {
 
 template <typename Data>
 void print_size(Data& structure) {
-    sizer visitor;
-    structure.visit(visitor);
+    sizer visitor(typeid(Data).name());
+    visitor.visit(structure);
     visitor.print();
 }
 
