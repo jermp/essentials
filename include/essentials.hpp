@@ -237,7 +237,7 @@ struct loader {
         visit(n);
         vec.resize(n);
         for (auto& v : vec) {
-            v.visit(*this);
+            visit(v);
         }
     }
 
@@ -282,7 +282,7 @@ struct saver {
         size_t n = vec.size();
         visit(n);
         for (auto& v : vec) {
-            v.visit(*this);
+            visit(v);
         }
     }
 
@@ -337,9 +337,10 @@ struct sizer {
             node n(0, parent->depth + 1, typeid(T).name());
             parent->children.push_back(n);
             m_current = &parent->children.back();
-            v.visit(*this);
+            visit(v);
             parent->bytes += m_current->bytes;
         }
+        m_current = parent;
     }
 
     template <typename Device>

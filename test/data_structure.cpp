@@ -41,6 +41,11 @@ struct collection {
         for (int i = 0; i != n; ++i) {
             x.push_back(i);
         }
+
+        m_data2.resize(n);
+        for (auto& d : m_data2) {
+            d.resize(5, 0);
+        }
     }
 
     void resize(size_t n) {
@@ -65,11 +70,13 @@ struct collection {
     void visit(Visitor& visitor) {
         visitor.visit(x);
         visitor.visit(m_data);
+        visitor.visit(m_data2);
     }
 
 private:
     basic<uint32_t> x;
     std::vector<basic<T>> m_data;
+    std::vector<std::vector<uint64_t>> m_data2;
 };
 
 int main() {
