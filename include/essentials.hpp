@@ -95,7 +95,9 @@ void save_vec(std::ostream& os, std::vector<T> const& vec) {
 
 struct json_lines {
     struct property {
-        property(std::string n, std::string v) : name(n), value(v) {}
+        property(std::string n, std::string v)
+            : name(n)
+            , value(v) {}
 
         std::string name;
         std::string value;
@@ -162,6 +164,12 @@ struct timer {
         m_timings.clear();
     }
 
+    void discard_first() {
+        if (runs()) {
+            m_timings.erase(m_timings.begin());
+        }
+    }
+
     void discard_min_max() {
         if (runs() > 1) {
             m_timings.erase(
@@ -189,7 +197,8 @@ typedef timer<clock_type, duration_type> timer_type;
 
 template <typename IntType>
 struct uniform_int_rng {
-    uniform_int_rng(size_t from, size_t to) : m_distr(from, to) {}
+    uniform_int_rng(size_t from, size_t to)
+        : m_distr(from, to) {}
 
     IntType gen() {
         return m_distr(m_rng);
@@ -204,7 +213,8 @@ private:
 #define is_not_pod(T) typename std::enable_if<!std::is_pod<T>::value>::type
 
 struct loader {
-    loader(char const* filename) : m_is(filename, std::ios::binary) {
+    loader(char const* filename)
+        : m_is(filename, std::ios::binary) {
         if (!m_is.good()) {
             throw std::runtime_error(
                 "Error in opening binary "
@@ -250,7 +260,8 @@ private:
 };
 
 struct saver {
-    saver(char const* filename) : m_os(filename, std::ios::binary) {
+    saver(char const* filename)
+        : m_os(filename, std::ios::binary) {
         if (!m_os.good()) {
             throw std::runtime_error(
                 "Error in opening binary "
@@ -296,11 +307,14 @@ private:
 
 struct sizer {
     sizer(std::string const& root_name = "")
-        : m_root(0, 0, root_name), m_current(&m_root) {}
+        : m_root(0, 0, root_name)
+        , m_current(&m_root) {}
 
     struct node {
         node(size_t b, size_t d, std::string const& n = "")
-            : bytes(b), depth(d), name(n) {}
+            : bytes(b)
+            , depth(d)
+            , name(n) {}
 
         size_t bytes;
         size_t depth;
