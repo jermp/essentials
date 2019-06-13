@@ -413,9 +413,16 @@ struct directory {
         std::string extension;
     };
 
+    ~directory() {
+        for (int i = 0; i != items(); ++i) {
+            free(m_items_names[i]);
+        }
+        free(m_items_names);
+    }
+
     directory(std::string const& name)
         : m_name(name) {
-        m_n = scandir(m_name.c_str(), &m_file_names, NULL, alphasort);
+        m_n = scandir(m_name.c_str(), &m_items_names, NULL, alphasort);
         if (m_n < 0) {
             throw std::runtime_error("error during scandir");
         }
@@ -436,7 +443,7 @@ struct directory {
 
         file_name operator*() {
             file_name fn;
-            fn.name = m_d->m_file_names[m_i]->d_name;
+            fn.name = m_d->m_items_names[m_i]->d_name;
             fn.fullpath = m_d->name() + "/" + fn.name;
             size_t p = fn.name.find_last_of(".");
             fn.extension = fn.name.substr(p + 1);
@@ -470,7 +477,7 @@ struct directory {
 
 private:
     std::string m_name;
-    struct dirent** m_file_names;
+    struct dirent** m_items_names;
     int m_n;
 };
 
