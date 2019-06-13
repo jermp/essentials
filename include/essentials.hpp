@@ -7,6 +7,7 @@
 #include <random>
 #include <type_traits>
 #include <vector>
+#include <dirent.h>
 
 namespace essentials {
 
@@ -404,5 +405,73 @@ void print_size(Data& structure) {
     visitor.visit(structure);
     visitor.print();
 }
+
+struct directory {
+    struct file_name {
+        std::string name;
+        std::string fullpath;
+        std::string extension;
+    };
+
+    directory(std::string const& name)
+        : m_name(name) {
+        m_n = scandir(m_name.c_str(), &m_file_names, NULL, alphasort);
+        if (m_n < 0) {
+            throw std::runtime_error("error during scandir");
+        }
+    }
+
+    std::string const& name() const {
+        return m_name;
+    }
+
+    int items() const {
+        return m_n;
+    }
+
+    struct iterator {
+        iterator(directory const* d, int i)
+            : m_d(d)
+            , m_i(i) {}
+
+        file_name operator*() {
+            file_name fn;
+            fn.name = m_d->m_file_names[m_i]->d_name;
+            fn.fullpath = m_d->name() + "/" + fn.name;
+            size_t p = fn.name.find_last_of(".");
+            fn.extension = fn.name.substr(p + 1);
+            return fn;
+        }
+
+        void operator++() {
+            ++m_i;
+        }
+
+        bool operator==(iterator const& rhs) const {
+            return m_i == rhs.m_i;
+        }
+
+        bool operator!=(iterator const& rhs) const {
+            return !(*this == rhs);
+        }
+
+    private:
+        directory const* m_d;
+        int m_i;
+    };
+
+    iterator begin() {
+        return iterator(this, 0);
+    }
+
+    iterator end() {
+        return iterator(this, items());
+    }
+
+private:
+    std::string m_name;
+    struct dirent** m_file_names;
+    int m_n;
+};
 
 }  // namespace essentials
