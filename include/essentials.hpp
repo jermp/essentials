@@ -183,9 +183,12 @@ struct timer {
         }
     }
 
+    double elapsed() {
+        return std::accumulate(m_timings.begin(), m_timings.end(), 0.0);
+    }
+
     double average() {
-        return std::accumulate(m_timings.begin(), m_timings.end(), 0.0) /
-               runs();
+        return elapsed() / runs();
     }
 
 private:
