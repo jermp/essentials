@@ -14,6 +14,16 @@ namespace essentials {
 typedef std::chrono::high_resolution_clock clock_type;
 typedef std::chrono::microseconds duration_type;
 
+void logger(std::string const& msg) {
+    time_t t = std::time(nullptr);
+    std::locale loc;
+    const std::time_put<char>& tp = std::use_facet<std::time_put<char>>(loc);
+    const char* fmt = "%F %T";
+    tp.put(std::cout, std::cout, ' ', std::localtime(&t), fmt,
+           fmt + strlen(fmt));
+    std::cout << ": " << msg << std::endl;
+}
+
 static const uint64_t GB = 1000 * 1000 * 1000;
 static const uint64_t GiB = uint64_t(1) << 30;
 static const uint64_t MB = 1000 * 1000;
