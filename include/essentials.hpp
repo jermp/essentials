@@ -8,6 +8,8 @@
 #include <type_traits>
 #include <vector>
 #include <dirent.h>
+#include <cstring>
+#include <locale>
 
 namespace essentials {
 
