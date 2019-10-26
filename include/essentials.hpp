@@ -217,10 +217,15 @@ private:
 
 typedef timer<clock_type, duration_type> timer_type;
 
+unsigned get_random_seed() {
+    return std::chrono::system_clock::now().time_since_epoch().count();
+}
+
 template <typename IntType>
 struct uniform_int_rng {
-    uniform_int_rng(size_t from, size_t to)
-        : m_distr(from, to) {}
+    uniform_int_rng(IntType from, IntType to, unsigned seed = 13)
+        : m_rng(seed)
+        , m_distr(from, to) {}
 
     IntType gen() {
         return m_distr(m_rng);
