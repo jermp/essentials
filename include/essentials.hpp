@@ -12,6 +12,7 @@
 #include <locale>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <cassert>
 
 namespace essentials {
 
