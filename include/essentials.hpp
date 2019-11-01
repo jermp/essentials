@@ -10,6 +10,8 @@
 #include <dirent.h>
 #include <cstring>
 #include <locale>
+#include <unistd.h>
+#include <sys/stat.h>
 
 namespace essentials {
 
@@ -508,5 +510,19 @@ private:
     struct dirent** m_items_names;
     int m_n;
 };
+
+bool create_directory(std::string const& name) {
+    if (mkdir(name.c_str(), 0777) != 0) {
+        if (errno == EEXIST) {
+            std::cerr << "directory already exists" << std::endl;
+        }
+        return false;
+    }
+    return true;
+}
+
+bool remove_directory(std::string const& name) {
+    return rmdir(name.c_str()) == 0;
+}
 
 }  // namespace essentials

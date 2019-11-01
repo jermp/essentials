@@ -18,5 +18,23 @@ int main() {
         }
     }
 
+    if (!create_directory("./foo")) {
+        return 1;
+    }
+
+    create_directory("./foo");  // must fail
+
+    if (!remove_directory("./foo")) {
+        return 1;
+    }
+
+    if (!remove_directory("./pippo")) {
+        std::cout << "directory may not exist or be not empty" << std::endl;
+    }
+
+    if (!remove_directory("./data_structure")) {
+        std::cout << "directory may not exist or be not empty" << std::endl;
+    }
+
     return 0;
 }
