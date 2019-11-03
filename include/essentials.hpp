@@ -36,7 +36,9 @@ static const uint64_t MiB = uint64_t(1) << 20;
 static const uint64_t KB = 1000;
 static const uint64_t KiB = uint64_t(1) << 10;
 
-#define convert(bytes, UNIT) static_cast<double>(bytes) / UNIT
+double convert(size_t bytes, uint64_t unit) {
+    return static_cast<double>(bytes) / unit;
+}
 
 template <typename T>
 void check_if_pod() {
