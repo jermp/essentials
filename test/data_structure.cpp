@@ -108,7 +108,8 @@ int main() {
         std::cout << convert(read_bytes, KB) << " [KB]" << std::endl;
         std::cout << convert(read_bytes, KiB) << " [KiB]" << std::endl;
         std::remove(input_filename);
-        print_size(my_ds);
+        size_t bytes = print_size(my_ds);
+        std::cout << "computed bytes during parsing = " << bytes << std::endl;
     }
 
     return 0;

@@ -433,10 +433,11 @@ size_t save(Data& structure, char const* filename) {
 }
 
 template <typename Data>
-void print_size(Data& structure) {
+size_t print_size(Data& structure) {
     sizer visitor(typeid(Data).name());
     visitor.visit(structure);
     visitor.print();
+    return visitor.bytes();
 }
 
 struct directory {
