@@ -402,8 +402,9 @@ struct sizer {
         }
     }
 
-    void print() const {
-        print(m_root, bytes(), std::cerr);
+    template <typename Device>
+    void print(Device& device) const {
+        print(m_root, bytes(), device);
     }
 
     size_t bytes() const {
@@ -432,11 +433,11 @@ size_t save(Data& structure, char const* filename) {
     return visit<Data, saver>(structure, filename);
 }
 
-template <typename Data>
-size_t print_size(Data& structure) {
+template <typename Data, typename Device>
+size_t print_size(Data& structure, Device& device) {
     sizer visitor(typeid(Data).name());
     visitor.visit(structure);
-    visitor.print();
+    visitor.print(device);
     return visitor.bytes();
 }
 
