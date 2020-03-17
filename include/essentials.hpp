@@ -441,6 +441,8 @@ size_t print_size(Data& structure, Device& device) {
     return visitor.bytes();
 }
 
+#if defined(__CYGWIN__) || defined(_WIN32) || defined(_WIN64)
+#else
 struct directory {
     struct file_name {
         std::string name;
@@ -515,6 +517,7 @@ private:
     struct dirent** m_items_names;
     int m_n;
 };
+#endif
 
 bool create_directory(std::string const& name) {
     if (mkdir(name.c_str(), 0777) != 0) {

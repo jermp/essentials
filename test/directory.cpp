@@ -5,6 +5,8 @@
 using namespace essentials;
 
 int main() {
+#if defined(__CYGWIN__) || defined(_WIN32) || defined(_WIN64)
+#else
     directory dir("..");
     std::cout << "directory name: '" << dir.name() << "'" << std::endl;
     std::cout << "found " << dir.items() << " items" << std::endl;
@@ -35,6 +37,7 @@ int main() {
     if (!remove_directory("./data_structure")) {
         std::cout << "directory may not exist or be not empty" << std::endl;
     }
+#endif
 
     return 0;
 }
