@@ -33,7 +33,8 @@ int main() {
         t.stop();
     }
 
-    t.discard_min_max();
+    t.discard_min();
+    t.discard_max();
     avg = t.average();
 
     std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den
@@ -53,7 +54,8 @@ int main() {
         t.stop();
     }
 
-    t.discard_min_max();
+    t.discard_min();
+    t.discard_max();
     avg = t.average();
 
     std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den

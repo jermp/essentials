@@ -196,15 +196,17 @@ struct timer {
         }
     }
 
-    void discard_min_max() {
-        if (runs() > 1) {
-            m_timings.erase(
-                std::max_element(m_timings.begin(), m_timings.end()));
-        }
-
+    void discard_min() {
         if (runs() > 1) {
             m_timings.erase(
                 std::min_element(m_timings.begin(), m_timings.end()));
+        }
+    }
+
+    void discard_max() {
+        if (runs() > 1) {
+            m_timings.erase(
+                std::max_element(m_timings.begin(), m_timings.end()));
         }
     }
 
