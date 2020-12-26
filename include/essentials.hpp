@@ -126,7 +126,24 @@ struct json_lines {
         m_properties.push_back(std::vector<property>());
     }
 
+    template <typename T>
+    void add(std::string name, T const& value) {
+        if (!m_properties.size()) {
+            new_line();
+        }
+        m_properties.back().emplace_back(name, std::to_string(value));
+    }
+
+    // specialization
     void add(std::string name, std::string value) {
+        if (!m_properties.size()) {
+            new_line();
+        }
+        m_properties.back().emplace_back(name, value);
+    }
+
+    // specialization
+    void add(std::string name, char const* value) {
         if (!m_properties.size()) {
             new_line();
         }
@@ -139,6 +156,10 @@ struct json_lines {
         out.close();
     }
 
+    void print_line() const {
+        print_line_to(m_properties.back(), std::cerr);
+    }
+
     void print() const {
         print_to(std::cerr);
     }
@@ -147,17 +168,23 @@ private:
     std::vector<std::vector<property>> m_properties;
 
     template <typename T>
+    void print_line_to(std::vector<property> const& properties,
+                       T& device) const {
+        device << "{";
+        for (uint64_t i = 0; i != properties.size(); ++i) {
+            auto const& p = properties[i];
+            device << "\"" << p.name << "\": \"" << p.value << "\"";
+            if (i != properties.size() - 1) {
+                device << ", ";
+            }
+        }
+        device << "}\n";
+    }
+
+    template <typename T>
     void print_to(T& device) const {
         for (auto const& properties : m_properties) {
-            device << "{";
-            for (uint64_t i = 0; i != properties.size(); ++i) {
-                auto const& p = properties[i];
-                device << "\"" << p.name << "\": \"" << p.value << "\"";
-                if (i != properties.size() - 1) {
-                    device << ", ";
-                }
-            }
-            device << "}\n";
+            print_line_to(properties, device);
         }
     }
 };
