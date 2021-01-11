@@ -7,8 +7,8 @@ Meant to be used in larger projects.
 See the `test` folder for examples.
 To compile such examples, just type the following commands from the parent directory.
 
-    $ cd test
-    $ mkdir build
-    $ cd build
-	$ cmake ..
-	$ make
+    cd test
+    mkdir build
+    cd build
+	cmake ..
+	make

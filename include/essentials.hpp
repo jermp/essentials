@@ -15,6 +15,10 @@
 #include <sys/stat.h>
 #include <cassert>
 
+#ifdef __GNUG__
+#include <cxxabi.h>  // for name demangling
+#endif
+
 namespace essentials {
 
 typedef std::chrono::high_resolution_clock clock_type;
@@ -25,8 +29,7 @@ void logger(std::string const& msg) {
     std::locale loc;
     const std::time_put<char>& tp = std::use_facet<std::time_put<char>>(loc);
     const char* fmt = "%F %T";
-    tp.put(std::cout, std::cout, ' ', std::localtime(&t), fmt,
-           fmt + strlen(fmt));
+    tp.put(std::cout, std::cout, ' ', std::localtime(&t), fmt, fmt + strlen(fmt));
     std::cout << ": " << msg << std::endl;
 }
 
@@ -93,8 +96,7 @@ void load_vec(std::istream& is, std::vector<T>& vec) {
     size_t n;
     load_pod(is, n);
     vec.resize(n);
-    is.read(reinterpret_cast<char*>(vec.data()),
-            static_cast<std::streamsize>(sizeof(T) * n));
+    is.read(reinterpret_cast<char*>(vec.data()), static_cast<std::streamsize>(sizeof(T) * n));
 }
 
 template <typename T>
@@ -168,8 +170,7 @@ private:
     std::vector<std::vector<property>> m_properties;
 
     template <typename T>
-    void print_line_to(std::vector<property> const& properties,
-                       T& device) const {
+    void print_line_to(std::vector<property> const& properties, T& device) const {
         device << "{";
         for (uint64_t i = 0; i != properties.size(); ++i) {
             auto const& p = properties[i];
@@ -197,8 +198,7 @@ struct timer {
 
     void stop() {
         m_stop = ClockType::now();
-        auto elapsed =
-            std::chrono::duration_cast<DurationType>(m_stop - m_start);
+        auto elapsed = std::chrono::duration_cast<DurationType>(m_stop - m_start);
         m_timings.push_back(elapsed.count());
     }
 
@@ -226,15 +226,13 @@ struct timer {
 
     void discard_min() {
         if (runs() > 1) {
-            m_timings.erase(
-                std::min_element(m_timings.begin(), m_timings.end()));
+            m_timings.erase(std::min_element(m_timings.begin(), m_timings.end()));
         }
     }
 
     void discard_max() {
         if (runs() > 1) {
-            m_timings.erase(
-                std::max_element(m_timings.begin(), m_timings.end()));
+            m_timings.erase(std::max_element(m_timings.begin(), m_timings.end()));
         }
     }
 
@@ -369,6 +367,14 @@ private:
     std::ofstream m_os;
 };
 
+std::string demangle(char const* mangled_name) {
+    size_t len = 0;
+    int status = 0;
+    std::unique_ptr<char, decltype(&std::free)> ptr(
+        __cxxabiv1::__cxa_demangle(mangled_name, nullptr, &len, &status), &std::free);
+    return ptr.get();
+}
+
 struct sizer {
     sizer(std::string const& root_name = "")
         : m_root(0, 0, root_name)
@@ -388,7 +394,7 @@ struct sizer {
 
     template <typename T>
     is_pod(T) visit(T& val) {
-        node n(pod_bytes(val), m_current->depth + 1, typeid(T).name());
+        node n(pod_bytes(val), m_current->depth + 1, demangle(typeid(T).name()));
         m_current->children.push_back(n);
         m_current->bytes += n.bytes;
     }
@@ -400,8 +406,7 @@ struct sizer {
 
     template <typename T>
     is_pod(T) visit(std::vector<T>& vec) {
-        node n(vec_bytes(vec), m_current->depth + 1,
-               typeid(std::vector<T>).name());
+        node n(vec_bytes(vec), m_current->depth + 1, demangle(typeid(std::vector<T>).name()));
         m_current->children.push_back(n);
         m_current->bytes += n.bytes;
     }
@@ -412,7 +417,7 @@ struct sizer {
         m_current->bytes += pod_bytes(n);
         node* parent = m_current;
         for (auto& v : vec) {
-            node n(0, parent->depth + 1, typeid(T).name());
+            node n(0, parent->depth + 1, demangle(typeid(T).name()));
             parent->children.push_back(n);
             m_current = &parent->children.back();
             visit(v);
@@ -465,7 +470,7 @@ size_t save(Data& structure, char const* filename) {
 
 template <typename Data, typename Device>
 size_t print_size(Data& structure, Device& device) {
-    sizer visitor(typeid(Data).name());
+    sizer visitor(demangle(typeid(Data).name()));
     visitor.visit(structure);
     visitor.print(device);
     return visitor.bytes();

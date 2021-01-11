@@ -37,8 +37,7 @@ int main() {
     t.discard_max();
     avg = t.average();
 
-    std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den
-              << " [sec]\n";
+    std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den << " [sec]\n";
     std::cout << "\tMean per query: " << avg / m << " [musec]";
     std::cout << std::endl;
 
@@ -58,8 +57,7 @@ int main() {
     t.discard_max();
     avg = t.average();
 
-    std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den
-              << " [sec]\n";
+    std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den << " [sec]\n";
     std::cout << "\tMean per query: " << avg / m << " [musec]";
     std::cout << std::endl;
 
