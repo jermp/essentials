@@ -91,8 +91,8 @@ void load_pod(std::istream& is, T& val) {
     is.read(reinterpret_cast<char*>(&val), sizeof(T));
 }
 
-template <typename T>
-void load_vec(std::istream& is, std::vector<T>& vec) {
+template <typename T, typename Allocator>
+void load_vec(std::istream& is, std::vector<T, Allocator>& vec) {
     size_t n;
     load_pod(is, n);
     vec.resize(n);
@@ -105,8 +105,8 @@ void save_pod(std::ostream& os, T const& val) {
     os.write(reinterpret_cast<char const*>(&val), sizeof(T));
 }
 
-template <typename T>
-void save_vec(std::ostream& os, std::vector<T> const& vec) {
+template <typename T, typename Allocator>
+void save_vec(std::ostream& os, std::vector<T, Allocator> const& vec) {
     check_if_pod<T>();
     size_t n = vec.size();
     save_pod(os, n);
@@ -276,7 +276,9 @@ private:
 
 struct loader {
     loader(char const* filename)
-        : m_is(filename, std::ios::binary) {
+        : m_num_bytes_pods(0)
+        , m_num_bytes_vecs_of_pods(0)
+        , m_is(filename, std::ios::binary) {
         if (!m_is.good()) {
             throw std::runtime_error(
                 "Error in opening binary "
@@ -291,6 +293,7 @@ struct loader {
     template <typename T>
     is_pod(T) visit(T& val) {
         load_pod(m_is, val);
+        m_num_bytes_pods += pod_bytes(val);
     }
 
     template <typename T>
@@ -298,26 +301,38 @@ struct loader {
         val.visit(*this);
     }
 
-    template <typename T>
-    is_pod(T) visit(std::vector<T>& vec) {
-        load_vec(m_is, vec);
-    }
-
-    template <typename T>
-    is_not_pod(T) visit(std::vector<T>& vec) {
+    template <typename T, typename Allocator>
+    is_pod(T) visit(std::vector<T, Allocator>& vec) {
         size_t n;
         visit(n);
         vec.resize(n);
-        for (auto& v : vec) {
-            visit(v);
-        }
+        m_is.read(reinterpret_cast<char*>(vec.data()), static_cast<std::streamsize>(sizeof(T) * n));
+        m_num_bytes_vecs_of_pods += n * sizeof(T);
+    }
+
+    template <typename T, typename Allocator>
+    is_not_pod(T) visit(std::vector<T, Allocator>& vec) {
+        size_t n;
+        visit(n);
+        vec.resize(n);
+        for (auto& v : vec) visit(v);
     }
 
     size_t bytes() {
         return m_is.tellg();
     }
 
+    size_t bytes_pods() {
+        return m_num_bytes_pods;
+    }
+
+    size_t bytes_vecs_of_pods() {
+        return m_num_bytes_vecs_of_pods;
+    }
+
 private:
+    size_t m_num_bytes_pods;
+    size_t m_num_bytes_vecs_of_pods;
     std::ifstream m_is;
 };
 
@@ -345,18 +360,16 @@ struct saver {
         val.visit(*this);
     }
 
-    template <typename T>
-    is_pod(T) visit(std::vector<T>& vec) {
+    template <typename T, typename Allocator>
+    is_pod(T) visit(std::vector<T, Allocator>& vec) {
         save_vec(m_os, vec);
     }
 
-    template <typename T>
-    is_not_pod(T) visit(std::vector<T>& vec) {
+    template <typename T, typename Allocator>
+    is_not_pod(T) visit(std::vector<T, Allocator>& vec) {
         size_t n = vec.size();
         visit(n);
-        for (auto& v : vec) {
-            visit(v);
-        }
+        for (auto& v : vec) visit(v);
     }
 
     size_t bytes() {
@@ -404,15 +417,15 @@ struct sizer {
         val.visit(*this);
     }
 
-    template <typename T>
-    is_pod(T) visit(std::vector<T>& vec) {
+    template <typename T, typename Allocator>
+    is_pod(T) visit(std::vector<T, Allocator>& vec) {
         node n(vec_bytes(vec), m_current->depth + 1, demangle(typeid(std::vector<T>).name()));
         m_current->children.push_back(n);
         m_current->bytes += n.bytes;
     }
 
-    template <typename T>
-    is_not_pod(T) visit(std::vector<T>& vec) {
+    template <typename T, typename Allocator>
+    is_not_pod(T) visit(std::vector<T, Allocator>& vec) {
         size_t n = vec.size();
         m_current->bytes += pod_bytes(n);
         node* parent = m_current;
@@ -451,27 +464,173 @@ private:
     node* m_current;
 };
 
-template <typename Data, typename Visitor>
-size_t visit(Data& structure, char const* filename) {
+template <typename T>
+struct allocator : std::allocator<T> {
+    static_assert(std::is_pod<T>::value);
+
+    typedef T value_type;
+
+    allocator()
+        : m_addr(nullptr) {}
+
+    allocator(T* addr)
+        : m_addr(addr) {}
+
+    T* allocate(size_t n) {
+        if (m_addr == nullptr) return std::allocator<T>::allocate(n);
+        return m_addr;
+    }
+
+    void deallocate(T* p, size_t n) {
+        if (m_addr == nullptr) return std::allocator<T>::deallocate(p, n);
+    }
+
+private:
+    T* m_addr;
+};
+
+struct contiguous_memory_allocator {
+    contiguous_memory_allocator()
+        : m_begin(nullptr)
+        , m_end(nullptr)
+        , m_size(0) {}
+
+    struct visitor {
+        visitor(uint8_t* begin, size_t size, char const* filename)
+            : m_begin(begin)
+            , m_end(begin)
+            , m_size(size)
+            , m_is(filename, std::ios::binary) {
+            if (!m_is.good()) {
+                throw std::runtime_error(
+                    "Error in opening binary "
+                    "file.");
+            }
+        }
+
+        ~visitor() {
+            m_is.close();
+        }
+
+        template <typename T>
+        is_pod(T) visit(T& val) {
+            load_pod(m_is, val);
+        }
+
+        template <typename T>
+        is_not_pod(T) visit(T& val) {
+            val.visit(*this);
+        }
+
+        template <typename T>
+        is_pod(T) visit(std::vector<T, allocator<T>>& vec) {
+            vec = std::vector<T, allocator<T>>(make_allocator<T>());
+            load_vec(m_is, vec);
+            consume(vec.size() * sizeof(T));
+        }
+
+        template <typename T>
+        is_not_pod(T) visit(std::vector<T>& vec) {
+            size_t n;
+            visit(n);
+            vec.resize(n);
+            for (auto& v : vec) visit(v);
+        }
+
+        uint8_t* end() {
+            return m_end;
+        }
+
+        size_t size() const {
+            return m_size;
+        }
+
+        size_t allocated() const {
+            assert(m_end >= m_begin);
+            return m_end - m_begin;
+        }
+
+        template <typename T>
+        allocator<T> make_allocator() {
+            return allocator<T>(reinterpret_cast<T*>(m_end));
+        }
+
+        void consume(size_t num_bytes) {
+            if (m_end == nullptr) return;
+            if (allocated() + num_bytes > size()) {
+                throw std::runtime_error("allocation failed");
+            }
+            m_end += num_bytes;
+        }
+
+    private:
+        uint8_t* m_begin;
+        uint8_t* m_end;
+        size_t m_size;
+        std::ifstream m_is;
+    };
+
+    template <typename T>
+    size_t allocate(T& data_structure, char const* filename) {
+        loader l(filename);
+        l.visit(data_structure);
+        m_size = l.bytes_vecs_of_pods();
+        m_begin = reinterpret_cast<uint8_t*>(malloc(m_size));
+        if (m_begin == nullptr) throw std::runtime_error("malloc failed");
+        visitor v(m_begin, m_size, filename);
+        v.visit(data_structure);
+        m_end = v.end();
+        return l.bytes();
+    }
+
+    ~contiguous_memory_allocator() {
+        free(m_begin);
+    }
+
+    uint8_t* begin() {
+        return m_begin;
+    }
+
+    uint8_t* end() {
+        return m_end;
+    }
+
+    size_t size() const {
+        return m_size;
+    }
+
+private:
+    uint8_t* m_begin;
+    uint8_t* m_end;
+    size_t m_size;
+};
+
+template <typename T, typename Visitor>
+size_t visit(T& data_structure, char const* filename) {
     Visitor visitor(filename);
-    visitor.visit(structure);
+    visitor.visit(data_structure);
     return visitor.bytes();
 }
 
-template <typename Data>
-size_t load(Data& structure, char const* filename) {
-    return visit<Data, loader>(structure, filename);
+template <typename T>
+size_t load(T& data_structure, char const* filename) {
+    return visit<T, loader>(data_structure, filename);
 }
 
-template <typename Data>
-size_t save(Data& structure, char const* filename) {
-    return visit<Data, saver>(structure, filename);
+template <typename T>
+size_t load_with_custom_memory_allocation(T& data_structure, char const* filename) {
+    return data_structure.get_allocator().allocate(data_structure, filename);
 }
 
-template <typename Data, typename Device>
-size_t print_size(Data& structure, Device& device) {
-    sizer visitor(demangle(typeid(Data).name()));
-    visitor.visit(structure);
+template <typename T>
+size_t save(T& data_structure, char const* filename) {
+    return visit<T, saver>(data_structure, filename);
+}
+
+template <typename T, typename Device>
+size_t print_size(T& data_structure, Device& device) {
+    sizer visitor(demangle(typeid(T).name()));
+    visitor.visit(data_structure);
     visitor.print(device);
     return visitor.bytes();
 }
