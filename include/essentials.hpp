@@ -488,10 +488,10 @@ struct contiguous_memory_allocator {
             }
         }
 
-        template <typename T>
-        void visit(std::vector<T, allocator<T>>& vec) {
+        template <typename T, typename Allocator>
+        void visit(std::vector<T, Allocator>& vec) {
             if constexpr (std::is_pod<T>::value) {
-                vec = std::vector<T, allocator<T>>(make_allocator<T>());
+                vec = std::vector<T, Allocator>(make_allocator<T>());
                 load_vec(m_is, vec);
                 consume(vec.size() * sizeof(T));
             } else {

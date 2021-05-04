@@ -47,8 +47,8 @@ private:
     int x;
     int y;
     uint64_t z;
-    std::vector<T1, allocator<T1>> m_data1;
-    std::vector<T2, allocator<T2>> m_data2;
+    std::vector<T1> m_data1;
+    std::vector<T2> m_data2;
 };
 
 struct complex {
@@ -76,13 +76,16 @@ struct complex {
         visitor.visit(m_data);
     }
 
-    contiguous_memory_allocator& get_allocator() {
-        return m_allocator;
-    }
+    // contiguous_memory_allocator& get_allocator() {
+    //     return m_allocator;
+    // }
 
 private:
-    contiguous_memory_allocator m_allocator;
-    std::vector<value_type, allocator<value_type>> m_data;
+    // contiguous_memory_allocator m_allocator;
+    std::vector<value_type
+                // allocator<value_type>
+                >
+        m_data;
 };
 
 struct wrapper {
