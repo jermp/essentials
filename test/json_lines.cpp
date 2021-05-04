@@ -19,6 +19,9 @@ int main() {
     jl.add("bar", 8894);
     jl.add("baz", "value");
 
+    std::string str("hi there");
+    jl.add("bit", str.c_str());
+
     // print all lines
     jl.print();
 

@@ -21,9 +21,6 @@
 
 namespace essentials {
 
-typedef std::chrono::high_resolution_clock clock_type;
-typedef std::chrono::microseconds duration_type;
-
 void logger(std::string const& msg) {
     time_t t = std::time(nullptr);
     std::locale loc;
@@ -122,27 +119,15 @@ struct json_lines {
     }
 
     template <typename T>
-    void add(std::string name, T const& value) {
+    void add(std::string name, T value) {
         if (!m_properties.size()) {
             new_line();
         }
-        m_properties.back().emplace_back(name, std::to_string(value));
-    }
-
-    // specialization
-    void add(std::string name, std::string value) {
-        if (!m_properties.size()) {
-            new_line();
+        if constexpr (std::is_same<T, char const*>::value) {
+            m_properties.back().emplace_back(name, value);
+        } else {
+            m_properties.back().emplace_back(name, std::to_string(value));
         }
-        m_properties.back().emplace_back(name, value);
-    }
-
-    // specialization
-    void add(std::string name, char const* value) {
-        if (!m_properties.size()) {
-            new_line();
-        }
-        m_properties.back().emplace_back(name, value);
     }
 
     void save_to_file(char const* filename) const {
@@ -243,6 +228,8 @@ private:
     std::vector<double> m_timings;
 };
 
+typedef std::chrono::high_resolution_clock clock_type;
+typedef std::chrono::microseconds duration_type;
 typedef timer<clock_type, duration_type> timer_type;
 
 unsigned get_random_seed() {
