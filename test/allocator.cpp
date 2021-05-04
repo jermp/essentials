@@ -82,7 +82,7 @@ struct complex {
 
 private:
     contiguous_memory_allocator m_allocator;
-    std::vector<value_type> m_data;
+    std::vector<value_type, allocator<value_type>> m_data;
 };
 
 int main() {

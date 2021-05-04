@@ -6,7 +6,7 @@ using namespace essentials;
 
 template <typename T>
 struct basic {
-    static_assert(std::is_pod<T>::value, "");
+    static_assert(std::is_pod<T>::value);
 
     basic() {}
 

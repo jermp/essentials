@@ -45,20 +45,13 @@ double convert(size_t bytes, uint64_t unit) {
 }
 
 template <typename T>
-void check_if_pod() {
-    if (!std::is_pod<T>::value) {
-        throw std::runtime_error("type must be a POD");
-    }
-}
-
-template <typename T>
 size_t vec_bytes(T const& vec) {
     return vec.size() * sizeof(vec.front()) + sizeof(typename T::size_type);
 }
 
 template <typename T>
 size_t pod_bytes(T const& pod) {
-    check_if_pod<T>();
+    static_assert(std::is_pod<T>::value);
     return sizeof(pod);
 }
 
@@ -87,7 +80,7 @@ inline void do_not_optimize_away(T&& datum) {
 
 template <typename T>
 void load_pod(std::istream& is, T& val) {
-    check_if_pod<T>();
+    static_assert(std::is_pod<T>::value);
     is.read(reinterpret_cast<char*>(&val), sizeof(T));
 }
 
@@ -101,13 +94,13 @@ void load_vec(std::istream& is, std::vector<T, Allocator>& vec) {
 
 template <typename T>
 void save_pod(std::ostream& os, T const& val) {
-    check_if_pod<T>();
+    static_assert(std::is_pod<T>::value);
     os.write(reinterpret_cast<char const*>(&val), sizeof(T));
 }
 
 template <typename T, typename Allocator>
 void save_vec(std::ostream& os, std::vector<T, Allocator> const& vec) {
-    check_if_pod<T>();
+    static_assert(std::is_pod<T>::value);
     size_t n = vec.size();
     save_pod(os, n);
     os.write(reinterpret_cast<char const*>(vec.data()),
@@ -271,9 +264,6 @@ private:
     std::uniform_int_distribution<IntType> m_distr;
 };
 
-#define is_pod(T) typename std::enable_if<std::is_pod<T>::value>::type
-#define is_not_pod(T) typename std::enable_if<!std::is_pod<T>::value>::type
-
 struct loader {
     loader(char const* filename)
         : m_num_bytes_pods(0)
@@ -291,31 +281,27 @@ struct loader {
     }
 
     template <typename T>
-    is_pod(T) visit(T& val) {
-        load_pod(m_is, val);
-        m_num_bytes_pods += pod_bytes(val);
-    }
-
-    template <typename T>
-    is_not_pod(T) visit(T& val) {
-        val.visit(*this);
-    }
-
-    template <typename T, typename Allocator>
-    is_pod(T) visit(std::vector<T, Allocator>& vec) {
-        size_t n;
-        visit(n);
-        vec.resize(n);
-        m_is.read(reinterpret_cast<char*>(vec.data()), static_cast<std::streamsize>(sizeof(T) * n));
-        m_num_bytes_vecs_of_pods += n * sizeof(T);
+    void visit(T& val) {
+        if constexpr (std::is_pod<T>::value) {
+            load_pod(m_is, val);
+            m_num_bytes_pods += pod_bytes(val);
+        } else {
+            val.visit(*this);
+        }
     }
 
     template <typename T, typename Allocator>
-    is_not_pod(T) visit(std::vector<T, Allocator>& vec) {
+    void visit(std::vector<T, Allocator>& vec) {
         size_t n;
         visit(n);
         vec.resize(n);
-        for (auto& v : vec) visit(v);
+        if constexpr (std::is_pod<T>::value) {
+            m_is.read(reinterpret_cast<char*>(vec.data()),
+                      static_cast<std::streamsize>(sizeof(T) * n));
+            m_num_bytes_vecs_of_pods += n * sizeof(T);
+        } else {
+            for (auto& v : vec) visit(v);
+        }
     }
 
     size_t bytes() {
@@ -351,25 +337,23 @@ struct saver {
     }
 
     template <typename T>
-    is_pod(T) visit(T& val) {
-        save_pod(m_os, val);
-    }
-
-    template <typename T>
-    is_not_pod(T) visit(T& val) {
-        val.visit(*this);
-    }
-
-    template <typename T, typename Allocator>
-    is_pod(T) visit(std::vector<T, Allocator>& vec) {
-        save_vec(m_os, vec);
+    void visit(T& val) {
+        if constexpr (std::is_pod<T>::value) {
+            save_pod(m_os, val);
+        } else {
+            val.visit(*this);
+        }
     }
 
     template <typename T, typename Allocator>
-    is_not_pod(T) visit(std::vector<T, Allocator>& vec) {
-        size_t n = vec.size();
-        visit(n);
-        for (auto& v : vec) visit(v);
+    void visit(std::vector<T, Allocator>& vec) {
+        if constexpr (std::is_pod<T>::value) {
+            save_vec(m_os, vec);
+        } else {
+            size_t n = vec.size();
+            visit(n);
+            for (auto& v : vec) visit(v);
+        }
     }
 
     size_t bytes() {
@@ -406,37 +390,35 @@ struct sizer {
     };
 
     template <typename T>
-    is_pod(T) visit(T& val) {
-        node n(pod_bytes(val), m_current->depth + 1, demangle(typeid(T).name()));
-        m_current->children.push_back(n);
-        m_current->bytes += n.bytes;
-    }
-
-    template <typename T>
-    is_not_pod(T) visit(T& val) {
-        val.visit(*this);
-    }
-
-    template <typename T, typename Allocator>
-    is_pod(T) visit(std::vector<T, Allocator>& vec) {
-        node n(vec_bytes(vec), m_current->depth + 1, demangle(typeid(std::vector<T>).name()));
-        m_current->children.push_back(n);
-        m_current->bytes += n.bytes;
-    }
-
-    template <typename T, typename Allocator>
-    is_not_pod(T) visit(std::vector<T, Allocator>& vec) {
-        size_t n = vec.size();
-        m_current->bytes += pod_bytes(n);
-        node* parent = m_current;
-        for (auto& v : vec) {
-            node n(0, parent->depth + 1, demangle(typeid(T).name()));
-            parent->children.push_back(n);
-            m_current = &parent->children.back();
-            visit(v);
-            parent->bytes += m_current->bytes;
+    void visit(T& val) {
+        if constexpr (std::is_pod<T>::value) {
+            node n(pod_bytes(val), m_current->depth + 1, demangle(typeid(T).name()));
+            m_current->children.push_back(n);
+            m_current->bytes += n.bytes;
+        } else {
+            val.visit(*this);
         }
-        m_current = parent;
+    }
+
+    template <typename T, typename Allocator>
+    void visit(std::vector<T, Allocator>& vec) {
+        if constexpr (std::is_pod<T>::value) {
+            node n(vec_bytes(vec), m_current->depth + 1, demangle(typeid(std::vector<T>).name()));
+            m_current->children.push_back(n);
+            m_current->bytes += n.bytes;
+        } else {
+            size_t n = vec.size();
+            m_current->bytes += pod_bytes(n);
+            node* parent = m_current;
+            for (auto& v : vec) {
+                node n(0, parent->depth + 1, demangle(typeid(T).name()));
+                parent->children.push_back(n);
+                m_current = &parent->children.back();
+                visit(v);
+                parent->bytes += m_current->bytes;
+            }
+            m_current = parent;
+        }
     }
 
     template <typename Device>
@@ -466,8 +448,6 @@ private:
 
 template <typename T>
 struct allocator : std::allocator<T> {
-    static_assert(std::is_pod<T>::value);
-
     typedef T value_type;
 
     allocator()
@@ -513,28 +493,26 @@ struct contiguous_memory_allocator {
         }
 
         template <typename T>
-        is_pod(T) visit(T& val) {
-            load_pod(m_is, val);
+        void visit(T& val) {
+            if constexpr (std::is_pod<T>::value) {
+                load_pod(m_is, val);
+            } else {
+                val.visit(*this);
+            }
         }
 
         template <typename T>
-        is_not_pod(T) visit(T& val) {
-            val.visit(*this);
-        }
-
-        template <typename T>
-        is_pod(T) visit(std::vector<T, allocator<T>>& vec) {
-            vec = std::vector<T, allocator<T>>(make_allocator<T>());
-            load_vec(m_is, vec);
-            consume(vec.size() * sizeof(T));
-        }
-
-        template <typename T>
-        is_not_pod(T) visit(std::vector<T>& vec) {
-            size_t n;
-            visit(n);
-            vec.resize(n);
-            for (auto& v : vec) visit(v);
+        void visit(std::vector<T, allocator<T>>& vec) {
+            if constexpr (std::is_pod<T>::value) {
+                vec = std::vector<T, allocator<T>>(make_allocator<T>());
+                load_vec(m_is, vec);
+                consume(vec.size() * sizeof(T));
+            } else {
+                size_t n;
+                visit(n);
+                vec.resize(n);
+                for (auto& v : vec) visit(v);
+            }
         }
 
         uint8_t* end() {
