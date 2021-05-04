@@ -85,27 +85,76 @@ private:
     std::vector<value_type, allocator<value_type>> m_data;
 };
 
+struct wrapper {
+    wrapper() {}
+    wrapper(size_t n) {
+        m_data.reserve(n);
+        for (size_t i = 0; i != n; ++i) {
+            complex c(n);
+            m_data.push_back(c);
+        }
+    }
+
+    void print() const {
+        for (auto const& obj : m_data) obj.print();
+    }
+
+    template <typename Visitor>
+    void visit(Visitor& visitor) {
+        visitor.visit(m_data);
+    }
+
+    /* This function and the allocator are the only two things to add
+    to use a custom memory allocator. */
+    contiguous_memory_allocator& get_allocator() {
+        return m_allocator;
+    }
+
+private:
+    contiguous_memory_allocator m_allocator;
+    /****************************************************************/
+
+    std::vector<complex, allocator<complex>> m_data;
+};
+
 int main() {
     static const size_t n = 10;
     char const* filename = "./.tmp.bin";
     size_t bytes = 0;
 
+    // {
+    //     complex c(n);
+    //     bytes = save(c, filename);
+    //     std::cout << "written bytes = " << bytes << std::endl;
+    //     c.print();
+    // }
+
+    // complex c;
+    // {
+    //     std::cout << "====" << std::endl;
+    //     bytes = load_with_custom_memory_allocation(c, filename);
+    //     // bytes = load(c, filename);
+    //     std::cout << "read bytes = " << bytes << std::endl;
+    //     std::remove(filename);
+    // }
+    // c.print();
+
     {
-        complex c(n);
-        bytes = save(c, filename);
+        wrapper w(n);
+        bytes = save(w, filename);
         std::cout << "written bytes = " << bytes << std::endl;
-        c.print();
+        w.print();
     }
 
-    complex c;
+    wrapper w;
     {
         std::cout << "====" << std::endl;
-        bytes = load_with_custom_memory_allocation(c, filename);
-        // bytes = load(c, filename);
+        bytes = load_with_custom_memory_allocation(w, filename);
+        // bytes = load(w, filename);
         std::cout << "read bytes = " << bytes << std::endl;
         std::remove(filename);
     }
-    c.print();
+    w.print();
 
     return 0;
 }
