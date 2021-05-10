@@ -15,6 +15,8 @@ std::vector<uint64_t> random_sequence(uint64_t n, uint64_t u) {
 }
 
 int main() {
+    std::cout << "max resident set size: " << essentials::maxrss_in_bytes() << " bytes\n";
+
     timer_type t;
 
     const uint64_t runs = 50;
@@ -60,6 +62,8 @@ int main() {
     std::cout << "\tMean per run: " << avg / duration_type::period::ratio::den << " [sec]\n";
     std::cout << "\tMean per query: " << avg / m << " [musec]";
     std::cout << std::endl;
+
+    std::cout << "max resident set size: " << essentials::maxrss_in_bytes() << " bytes\n";
 
     return 0;
 }

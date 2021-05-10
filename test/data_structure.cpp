@@ -80,6 +80,8 @@ private:
 };
 
 int main() {
+    std::cout << "max resident set size: " << essentials::maxrss_in_bytes() << " bytes\n";
+
     const size_t universe = 1000;
     const size_t n = 10;
 
@@ -111,6 +113,8 @@ int main() {
         size_t bytes = print_size(my_ds, std::cout);
         std::cout << "computed bytes during parsing = " << bytes << std::endl;
     }
+
+    std::cout << "max resident set size: " << essentials::maxrss_in_bytes() << " bytes\n";
 
     return 0;
 }

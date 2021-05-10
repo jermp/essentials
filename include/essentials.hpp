@@ -13,6 +13,8 @@
 #include <locale>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <cassert>
 
 #ifdef __GNUG__
@@ -71,8 +73,14 @@ uint64_t words_for(uint64_t bits) {
 }
 
 template <typename T>
-inline void do_not_optimize_away(T&& datum) {
-    asm volatile("" : "+r"(datum));
+inline void do_not_optimize_away(T&& value) {
+    asm volatile("" : "+r"(value));
+}
+
+uint64_t maxrss_in_bytes() {
+    struct rusage ru;
+    if (getrusage(RUSAGE_SELF, &ru) == 0) return ru.ru_maxrss;
+    return 0;
 }
 
 template <typename T>
