@@ -83,9 +83,8 @@ uint64_t maxrss_in_bytes() {
         // NOTE: ru_maxrss is in kilobytes on Linux, but not on Apple...
 #ifdef __APPLE__
         return ru.ru_maxrss;
-#elif
-        return ru.ru_maxrss * 1000;
 #endif
+        return ru.ru_maxrss * 1000;
     }
     return 0;
 }
