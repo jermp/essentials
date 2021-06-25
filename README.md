@@ -24,7 +24,7 @@ What's inside?
 configurable timer class, function to prevent code elision by compiler,
 simple creation and printing of json documents
 * functions to serialize-to and load-from disk data structures
-* functions to compute the numbr of bytes consumed by data structures
+* functions to compute the number of bytes consumed by data structures
 * support for creating, removing, and iterate inside directories
 
 * **Experimental**: transparent support for contiguous memory allocation
