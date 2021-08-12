@@ -6,6 +6,15 @@ Meant to be used in larger projects.
 
 #### NOTE: C++17 is needed to use the library.
 
+The library is used in several other C++ libraries, such as
+
+* [Tongrams](https://github.com/jermp/tongrams), a library for compressed n-gram indexes;
+* [PTHash](https://github.com/jermp/pthash), a library implementing efficient minimal and perfect hash functions;
+* [Auto-Complete](https://github.com/jermp/autocomplete), a library for fast and effective query auto-completion;
+* [Bit-Sliced Indexes](https://github.com/jermp/s_indexes), a library providing fast compressed bitmaps.
+
+ 
+
 Integration
 -----------
 
