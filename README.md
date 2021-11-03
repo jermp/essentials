@@ -1,5 +1,7 @@
+[![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/jermp/essentials.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/jermp/essentials/context:cpp)
+
 C++ Essentials
---------------
+==============
 
 A self-contained, header-only, collection of some essential C++ utilities that I use extensively for data structure design and benchmarking.
 Meant to be used in larger projects.
