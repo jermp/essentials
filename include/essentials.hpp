@@ -23,7 +23,7 @@
 
 namespace essentials {
 
-void logger(std::string const& msg) {
+[[maybe_unused]] static void logger(std::string const& msg) {
     time_t t = std::time(nullptr);
     std::locale loc;
     const std::time_put<char>& tp = std::use_facet<std::time_put<char>>(loc);
@@ -39,22 +39,22 @@ static const uint64_t MiB = uint64_t(1) << 20;
 static const uint64_t KB = 1000;
 static const uint64_t KiB = uint64_t(1) << 10;
 
-double convert(size_t bytes, uint64_t unit) {
+[[maybe_unused]] static double convert(size_t bytes, uint64_t unit) {
     return static_cast<double>(bytes) / unit;
 }
 
 template <typename T>
-size_t vec_bytes(T const& vec) {
+static size_t vec_bytes(T const& vec) {
     return vec.size() * sizeof(vec.front()) + sizeof(typename T::size_type);
 }
 
 template <typename T>
-size_t pod_bytes(T const& pod) {
+static size_t pod_bytes(T const& pod) {
     static_assert(std::is_pod<T>::value);
     return sizeof(pod);
 }
 
-size_t file_size(char const* filename) {
+[[maybe_unused]] static size_t file_size(char const* filename) {
     std::ifstream is(filename, std::ios::binary | std::ios::ate);
     if (!is.good()) {
         throw std::runtime_error(
@@ -67,17 +67,17 @@ size_t file_size(char const* filename) {
 }
 
 template <typename WordType = uint64_t>
-uint64_t words_for(uint64_t bits) {
+static uint64_t words_for(uint64_t bits) {
     uint64_t word_bits = sizeof(WordType) * 8;
     return (bits + word_bits - 1) / word_bits;
 }
 
 template <typename T>
-inline void do_not_optimize_away(T&& value) {
+static inline void do_not_optimize_away(T&& value) {
     asm volatile("" : "+r"(value));
 }
 
-uint64_t maxrss_in_bytes() {
+[[maybe_unused]] static uint64_t maxrss_in_bytes() {
     struct rusage ru;
     if (getrusage(RUSAGE_SELF, &ru) == 0) {
         // NOTE: ru_maxrss is in kilobytes on Linux, but not on Apple...
@@ -90,13 +90,13 @@ uint64_t maxrss_in_bytes() {
 }
 
 template <typename T>
-void load_pod(std::istream& is, T& val) {
+static void load_pod(std::istream& is, T& val) {
     static_assert(std::is_pod<T>::value);
     is.read(reinterpret_cast<char*>(&val), sizeof(T));
 }
 
 template <typename T, typename Allocator>
-void load_vec(std::istream& is, std::vector<T, Allocator>& vec) {
+static void load_vec(std::istream& is, std::vector<T, Allocator>& vec) {
     size_t n;
     load_pod(is, n);
     vec.resize(n);
@@ -104,13 +104,13 @@ void load_vec(std::istream& is, std::vector<T, Allocator>& vec) {
 }
 
 template <typename T>
-void save_pod(std::ostream& os, T const& val) {
+static void save_pod(std::ostream& os, T const& val) {
     static_assert(std::is_pod<T>::value);
     os.write(reinterpret_cast<char const*>(&val), sizeof(T));
 }
 
 template <typename T, typename Allocator>
-void save_vec(std::ostream& os, std::vector<T, Allocator> const& vec) {
+static void save_vec(std::ostream& os, std::vector<T, Allocator> const& vec) {
     static_assert(std::is_pod<T>::value);
     size_t n = vec.size();
     save_pod(os, n);
@@ -246,7 +246,7 @@ typedef std::chrono::high_resolution_clock clock_type;
 typedef std::chrono::microseconds duration_type;
 typedef timer<clock_type, duration_type> timer_type;
 
-unsigned get_random_seed() {
+[[maybe_unused]] static unsigned get_random_seed() {
     return std::chrono::system_clock::now().time_since_epoch().count();
 }
 
@@ -365,7 +365,7 @@ private:
     std::ofstream m_os;
 };
 
-std::string demangle(char const* mangled_name) {
+[[maybe_unused]] static std::string demangle(char const* mangled_name) {
     size_t len = 0;
     int status = 0;
     std::unique_ptr<char, decltype(&std::free)> ptr(
@@ -585,29 +585,29 @@ private:
 };
 
 template <typename T, typename Visitor>
-size_t visit(T& data_structure, char const* filename) {
+static size_t visit(T& data_structure, char const* filename) {
     Visitor visitor(filename);
     visitor.visit(data_structure);
     return visitor.bytes();
 }
 
 template <typename T>
-size_t load(T& data_structure, char const* filename) {
+static size_t load(T& data_structure, char const* filename) {
     return visit<T, loader>(data_structure, filename);
 }
 
 template <typename T>
-size_t load_with_custom_memory_allocation(T& data_structure, char const* filename) {
+static size_t load_with_custom_memory_allocation(T& data_structure, char const* filename) {
     return data_structure.get_allocator().allocate(data_structure, filename);
 }
 
 template <typename T>
-size_t save(T& data_structure, char const* filename) {
+static size_t save(T& data_structure, char const* filename) {
     return visit<T, saver>(data_structure, filename);
 }
 
 template <typename T, typename Device>
-size_t print_size(T& data_structure, Device& device) {
+static size_t print_size(T& data_structure, Device& device) {
     sizer visitor(demangle(typeid(T).name()));
     visitor.visit(data_structure);
     visitor.print(device);
@@ -692,7 +692,7 @@ private:
 };
 #endif
 
-bool create_directory(std::string const& name) {
+[[maybe_unused]] static bool create_directory(std::string const& name) {
     if (mkdir(name.c_str(), 0777) != 0) {
         if (errno == EEXIST) {
             std::cerr << "directory already exists" << std::endl;
@@ -702,7 +702,7 @@ bool create_directory(std::string const& name) {
     return true;
 }
 
-bool remove_directory(std::string const& name) {
+[[maybe_unused]] static bool remove_directory(std::string const& name) {
     return rmdir(name.c_str()) == 0;
 }
 
