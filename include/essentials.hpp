@@ -16,6 +16,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <cassert>
+#include <memory>
 
 #ifdef __GNUG__
 #include <cxxabi.h>  // for name demangling
