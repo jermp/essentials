@@ -21,6 +21,19 @@
 #include <cxxabi.h>  // for name demangling
 #endif
 
+// check if std is C++20 or higher
+#if __cplusplus >= 202002L
+
+// Overwritting behavior of std::is_pod for C++20
+namespace std {
+template <typename T>
+struct is_pod {
+    static constexpr bool value = std::is_trivial<T>::value && std::is_standard_layout<T>::value;
+};
+}  // namespace std
+
+#endif
+
 namespace essentials {
 
 [[maybe_unused]] static void logger(std::string const& msg) {
