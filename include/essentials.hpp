@@ -10,6 +10,7 @@
 #include <vector>
 #include <dirent.h>
 #include <cstring>
+#include <memory>
 #include <locale>
 #include <unistd.h>
 #include <sys/stat.h>
