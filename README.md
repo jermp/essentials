@@ -26,6 +26,11 @@ If you use `git`, the easiest way to add Essentials is via `git add submodule` a
 
 	git submodule add https://github.com/jermp/essentials.git
 
+If you are using cmake, you can include the project as follows:
+
+    add_subdirectory(path/to/essentials)
+    target_link_libraries(YourTarget PRIVATE JermpEssentials)
+
 What's inside?
 --------------
 
