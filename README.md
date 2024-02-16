@@ -13,7 +13,6 @@ The library is used in several other C++ libraries, such as
 * [Auto-Complete](https://github.com/jermp/autocomplete), a library for fast and effective query auto-completion;
 * [Bit-Sliced Indexes](https://github.com/jermp/s_indexes), a library providing fast compressed bitmaps.
 
- 
 
 Integration
 -----------
@@ -26,22 +25,22 @@ If you use `git`, the easiest way to add Essentials is via `git add submodule` a
 
 	git submodule add https://github.com/jermp/essentials.git
 
-If you are using cmake, you can include the project as follows:
+If you are using `CMake`, you can include the project as follows:
 
     add_subdirectory(path/to/essentials)
-    target_link_libraries(YourTarget PRIVATE JermpEssentials)
+    target_link_libraries(YourTarget PRIVATE ESSENTIALS)
 
 What's inside?
 --------------
 
-* benchmarking facilities, including: messages displaying local time,
+* Benchmarking facilities, including: messages displaying local time,
 configurable timer class, function to prevent code elision by compiler,
-simple creation and printing of json documents
-* functions to serialize-to and load-from disk data structures
-* functions to compute the number of bytes consumed by data structures
-* support for creating, removing, and iterate inside directories
+simple creation and printing of json documents.
+* Functions to serialize-to and load-from disk data structures.
+* Functions to compute the number of bytes consumed by data structures.
+* Support for creating, removing, and iterate inside directories.
 
-* **Experimental**: transparent support for contiguous memory allocation
+* **Experimental**: transparent support for contiguous memory allocation.
 
 
 Examples
