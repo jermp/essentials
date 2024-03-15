@@ -150,7 +150,9 @@ struct json_lines {
         }
         if constexpr (std::is_same<T, char const*>::value) {
             m_properties.back().emplace_back(name, value);
-        } else {
+        } else if constexpr (std::is_same<T, bool>::value) {
+            m_properties.back().emplace_back(name, value ? "true" : "false");
+        }  else {
             m_properties.back().emplace_back(name, std::to_string(value));
         }
     }
