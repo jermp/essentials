@@ -152,7 +152,7 @@ struct json_lines {
             m_properties.back().emplace_back(name, value);
         } else if constexpr (std::is_same<T, bool>::value) {
             m_properties.back().emplace_back(name, value ? "true" : "false");
-        }  else {
+        } else {
             m_properties.back().emplace_back(name, std::to_string(value));
         }
     }
