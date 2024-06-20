@@ -603,8 +603,8 @@ private:
     size_t m_size;
 };
 
-template <typename Visitor>
-static size_t visit(auto&& data_structure, char const* filename) {
+template <typename Visitor, typename T>
+static size_t visit(T&& data_structure, char const* filename) {
     Visitor visitor(filename);
     visitor.visit(data_structure);
     return visitor.bytes();
