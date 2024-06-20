@@ -327,8 +327,8 @@ private:
 
 struct loader : generic_loader {
     loader(char const* filename)
-        : m_is(filename, std::ios::binary)
-        , generic_loader(m_is) {
+        : generic_loader(m_is)
+        , m_is(filename, std::ios::binary) {
         if (!m_is.good()) {
             throw std::runtime_error(
                 "Error in opening binary "
@@ -371,8 +371,8 @@ private:
 
 struct saver : generic_saver {
     saver(char const* filename)
-        : m_os(filename, std::ios::binary)
-        , generic_saver(m_os) {
+        : generic_saver(m_os)
+        , m_os(filename, std::ios::binary) {
         if (!m_os.good()) {
             throw std::runtime_error(
                 "Error in opening binary "
