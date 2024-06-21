@@ -152,7 +152,7 @@ struct json_lines {
             m_properties.back().emplace_back(name, value);
         } else if constexpr (std::is_same<T, bool>::value) {
             m_properties.back().emplace_back(name, value ? "true" : "false");
-        }  else {
+        } else {
             m_properties.back().emplace_back(name, std::to_string(value));
         }
     }
@@ -278,21 +278,11 @@ private:
     std::uniform_int_distribution<IntType> m_distr;
 };
 
-struct loader {
-    loader(char const* filename)
+struct generic_loader {
+    generic_loader(std::istream& is)
         : m_num_bytes_pods(0)
         , m_num_bytes_vecs_of_pods(0)
-        , m_is(filename, std::ios::binary) {
-        if (!m_is.good()) {
-            throw std::runtime_error(
-                "Error in opening binary "
-                "file.");
-        }
-    }
-
-    ~loader() {
-        m_is.close();
-    }
+        , m_is(is) {}
 
     template <typename T>
     void visit(T& val) {
@@ -333,25 +323,30 @@ struct loader {
 private:
     size_t m_num_bytes_pods;
     size_t m_num_bytes_vecs_of_pods;
-    std::ifstream m_is;
+    std::istream& m_is;
 };
 
-struct saver {
-    saver(char const* filename)
-        : m_os(filename, std::ios::binary) {
-        if (!m_os.good()) {
+struct loader : generic_loader {
+    loader(char const* filename)
+        : generic_loader(m_is)
+        , m_is(filename, std::ios::binary) {
+        if (!m_is.good()) {
             throw std::runtime_error(
                 "Error in opening binary "
                 "file.");
         }
     }
 
-    ~saver() {
-        m_os.close();
-    }
+private:
+    std::ifstream m_is;
+};
+
+struct generic_saver {
+    generic_saver(std::ostream& os)
+        : m_os(os) {}
 
     template <typename T>
-    void visit(T& val) {
+    void visit(T const& val) {
         if constexpr (is_pod<T>::value) {
             save_pod(m_os, val);
         } else {
@@ -360,7 +355,7 @@ struct saver {
     }
 
     template <typename T, typename Allocator>
-    void visit(std::vector<T, Allocator>& vec) {
+    void visit(std::vector<T, Allocator> const& vec) {
         if constexpr (is_pod<T>::value) {
             save_vec(m_os, vec);
         } else {
@@ -372,6 +367,21 @@ struct saver {
 
     size_t bytes() {
         return m_os.tellp();
+    }
+
+private:
+    std::ostream& m_os;
+};
+
+struct saver : generic_saver {
+    saver(char const* filename)
+        : generic_saver(m_os)
+        , m_os(filename, std::ios::binary) {
+        if (!m_os.good()) {
+            throw std::runtime_error(
+                "Error in opening binary "
+                "file.");
+        }
     }
 
 private:
@@ -597,8 +607,8 @@ private:
     size_t m_size;
 };
 
-template <typename T, typename Visitor>
-static size_t visit(T& data_structure, char const* filename) {
+template <typename Visitor, typename T>
+static size_t visit(T&& data_structure, char const* filename) {
     Visitor visitor(filename);
     visitor.visit(data_structure);
     return visitor.bytes();
@@ -606,7 +616,7 @@ static size_t visit(T& data_structure, char const* filename) {
 
 template <typename T>
 static size_t load(T& data_structure, char const* filename) {
-    return visit<T, loader>(data_structure, filename);
+    return visit<loader>(data_structure, filename);
 }
 
 template <typename T>
@@ -615,8 +625,8 @@ static size_t load_with_custom_memory_allocation(T& data_structure, char const* 
 }
 
 template <typename T>
-static size_t save(T& data_structure, char const* filename) {
-    return visit<T, saver>(data_structure, filename);
+static size_t save(T const& data_structure, char const* filename) {
+    return visit<saver>(data_structure, filename);
 }
 
 template <typename T, typename Device>
