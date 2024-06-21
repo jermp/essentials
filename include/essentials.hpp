@@ -283,6 +283,7 @@ struct generic_loader {
         : m_num_bytes_pods(0)
         , m_num_bytes_vecs_of_pods(0)
         , m_is(is) {}
+
     template <typename T>
     void visit(T& val) {
         if constexpr (is_pod<T>::value) {
@@ -343,6 +344,7 @@ private:
 struct generic_saver {
     generic_saver(std::ostream& os)
         : m_os(os) {}
+
     template <typename T>
     void visit(T const& val) {
         if constexpr (is_pod<T>::value) {
@@ -351,6 +353,7 @@ struct generic_saver {
             val.visit(*this);
         }
     }
+
     template <typename T, typename Allocator>
     void visit(std::vector<T, Allocator> const& vec) {
         if constexpr (is_pod<T>::value) {
@@ -361,6 +364,7 @@ struct generic_saver {
             for (auto& v : vec) visit(v);
         }
     }
+
     size_t bytes() {
         return m_os.tellp();
     }

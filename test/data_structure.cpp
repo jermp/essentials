@@ -24,13 +24,23 @@ struct basic {
 
     template <typename Visitor>
     void visit(Visitor& visitor) {
-        visitor.visit(x);
-        visitor.visit(m_data);
+        visit(visitor, *this);
+    }
+
+    template <typename Visitor>
+    void visit(Visitor& visitor) const {
+        visit(visitor, *this);
     }
 
 private:
     int x = 10;
     std::vector<T> m_data;
+
+    template <typename Visitor, typename F>
+    static void visit(Visitor& visitor, F&& t) {
+        visitor.visit(t.x);
+        visitor.visit(t.m_data);
+    }
 };
 
 template <typename T>
@@ -68,15 +78,25 @@ struct collection {
 
     template <typename Visitor>
     void visit(Visitor& visitor) {
-        visitor.visit(x);
-        visitor.visit(m_data);
-        visitor.visit(m_data2);
+        visit(visitor, *this);
+    }
+
+    template <typename Visitor>
+    void visit(Visitor& visitor) const {
+        visit(visitor, *this);
     }
 
 private:
     basic<uint32_t> x;
     std::vector<basic<T>> m_data;
     std::vector<std::vector<uint64_t>> m_data2;
+
+    template <typename Visitor, typename F>
+    static void visit(Visitor& visitor, F&& t) {
+        visitor.visit(t.x);
+        visitor.visit(t.m_data);
+        visitor.visit(t.m_data2);
+    }
 };
 
 int main() {
