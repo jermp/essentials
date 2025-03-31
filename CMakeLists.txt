@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.10...4.0)
 
 project(ESSENTIALS)
 set(PROJECT_VENDOR "Giulio Ermanno Pibiri")
