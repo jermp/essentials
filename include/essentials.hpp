@@ -637,6 +637,34 @@ static size_t print_size(T& data_structure, Device& device) {
     return visitor.bytes();
 }
 
+/* Reference: https://semver.org */
+struct version_number {
+    version_number(uint8_t x, uint8_t y, uint8_t z)
+        : x(x)
+        , y(y)
+        , z(z) {}
+
+    std::string to_string() const {
+        return std::to_string(x) + '.' + std::to_string(y) + '.' + std::to_string(z);
+    }
+
+    uint8_t x, y, z;
+
+    template <typename Visitor>
+    void visit(Visitor& visitor) {
+        visitor.visit(x);
+        visitor.visit(y);
+        visitor.visit(z);
+    }
+
+    template <typename Visitor>
+    void visit(Visitor& visitor) const {
+        visitor.visit(x);
+        visitor.visit(y);
+        visitor.visit(z);
+    }
+};
+
 #if defined(__CYGWIN__) || defined(_WIN32) || defined(_WIN64)
 #else
 struct directory {
