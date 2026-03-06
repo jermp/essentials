@@ -7,6 +7,7 @@
 #include <numeric>
 #include <random>
 #include <type_traits>
+#include <memory>
 #include <vector>
 #include <dirent.h>
 #include <cstring>
@@ -120,14 +121,81 @@ static void save_pod(std::ostream& os, T const& val) {
     os.write(reinterpret_cast<char const*>(&val), sizeof(T));
 }
 
-template <typename T, typename Allocator>
-static void save_vec(std::ostream& os, std::vector<T, Allocator> const& vec) {
-    static_assert(is_pod<T>::value);
-    size_t n = vec.size();
-    save_pod(os, n);
-    os.write(reinterpret_cast<char const*>(vec.data()),
-             static_cast<std::streamsize>(sizeof(T) * n));
-}
+
+
+/*
+    A read-only span with optional shared ownership.
+    After construction, only const access is permitted.
+
+    Three ownership models via shared_ptr's aliasing constructor:
+    1. Heap-owned: constructed from an rvalue contiguous range (e.g. vector) —
+       the range is heap-allocated inside a shared_ptr, and the span points
+       into its buffer.
+    2. Externally-owned: constructed from a raw pointer + shared_ptr owner
+       (e.g., an mmap context) — the span keeps the owner alive.
+    3. Unowned: constructed from a raw pointer without owner — the caller
+       must ensure the backing memory outlives the span.
+
+    All models yield the same branch-free const T* access path.
+*/
+template <typename T>
+class owning_span {
+    std::shared_ptr<const T[]> m_data;
+    size_t m_size = 0;
+
+    template <typename R>
+    using has_contiguous_data = std::enable_if_t<
+        !std::is_same_v<std::decay_t<R>, owning_span> &&
+        std::is_convertible_v<decltype(std::declval<const std::decay_t<R>&>().data()), const T*> &&
+        std::is_convertible_v<decltype(std::declval<const std::decay_t<R>&>().size()), size_t>>;
+
+public:
+    using value_type = T;
+    using size_type = size_t;
+    using const_iterator = const T*;
+
+    owning_span() = default;
+
+    /* Take ownership of any contiguous range (vector, array, string, ...).
+       Rvalues are moved; lvalues are copied. */
+    template <typename Range, typename = has_contiguous_data<Range>>
+    owning_span(Range&& r) {
+        if (r.size() == 0) return;
+        auto p = std::make_shared<std::decay_t<Range>>(std::forward<Range>(r));
+        m_size = p->size();
+        const T* ptr = p->data();
+        m_data = std::shared_ptr<const T[]>(std::move(p), ptr);
+    }
+
+    /* View into externally-managed memory, optionally keeping owner alive. */
+    owning_span(const T* data, size_t n,
+                std::shared_ptr<const void> owner = {})
+        : m_size(n)
+        , m_data(std::move(owner), data) {}
+
+    const T* data() const { return m_data.get(); }
+    size_t size() const { return m_size; }
+    bool empty() const { return m_size == 0; }
+    const T& operator[](size_t i) const { return m_data[i]; }
+    const T& front() const { return m_data[0]; }
+    const T& back() const { return m_data[m_size - 1]; }
+    const_iterator begin() const { return data(); }
+    const_iterator end() const { return data() + m_size; }
+
+    void swap(owning_span& other) {
+        m_data.swap(other.m_data);
+        std::swap(m_size, other.m_size);
+    }
+
+    void clear() { m_data.reset(); m_size = 0; }
+};
+
+template <typename T>
+struct is_owning_span : std::false_type {};
+template <typename T>
+struct is_owning_span<owning_span<T>> : std::true_type {};
+template <typename T>
+inline constexpr bool is_owning_span_v = is_owning_span<T>::value;
 
 struct json_lines {
     struct property {
@@ -282,7 +350,16 @@ struct generic_loader {
     generic_loader(std::istream& is)
         : m_num_bytes_pods(0)
         , m_num_bytes_vecs_of_pods(0)
-        , m_is(is) {}
+        , m_is(is)
+        , m_mmap_base(nullptr)
+        , m_mmap_size(0) {}
+
+    void set_mmap(const uint8_t* base, size_t size,
+                  std::shared_ptr<const void> owner = {}) {
+        m_mmap_base = base;
+        m_mmap_size = size;
+        m_mmap_owner = std::move(owner);
+    }
 
     template <typename T>
     void visit(T& val) {
@@ -295,18 +372,10 @@ struct generic_loader {
     }
 
     template <typename T, typename Allocator>
-    void visit(std::vector<T, Allocator>& vec) {
-        size_t n;
-        visit(n);
-        vec.resize(n);
-        if constexpr (is_pod<T>::value) {
-            m_is.read(reinterpret_cast<char*>(vec.data()),
-                      static_cast<std::streamsize>(sizeof(T) * n));
-            m_num_bytes_vecs_of_pods += n * sizeof(T);
-        } else {
-            for (auto& v : vec) visit(v);
-        }
-    }
+    void visit(std::vector<T, Allocator>& vec) { visit_seq(vec); }
+
+    template <typename T>
+    void visit(owning_span<T>& vec) { visit_seq(vec); }
 
     size_t bytes() {
         return m_is.tellg();
@@ -320,10 +389,42 @@ struct generic_loader {
         return m_num_bytes_vecs_of_pods;
     }
 
+    bool is_mmap() const { return m_mmap_base != nullptr; }
+
 private:
     size_t m_num_bytes_pods;
     size_t m_num_bytes_vecs_of_pods;
     std::istream& m_is;
+    const uint8_t* m_mmap_base;
+    size_t m_mmap_size;
+    std::shared_ptr<const void> m_mmap_owner;
+
+    template <typename Vec>
+    void visit_seq(Vec& vec) {
+        using T = typename Vec::value_type;
+        size_t n;
+        visit(n);
+        if constexpr (is_owning_span_v<Vec>) {
+            if (is_mmap()) {
+                assert(is_pod<T>::value);
+                auto offset = static_cast<size_t>(m_is.tellg());
+                vec = Vec(reinterpret_cast<const T*>(m_mmap_base + offset), n,
+                          m_mmap_owner);
+                m_is.seekg(static_cast<std::streamoff>(offset + n * sizeof(T)));
+                m_num_bytes_vecs_of_pods += n * sizeof(T);
+                return;
+            }
+        }
+        std::vector<T> tmp(n);
+        if constexpr (is_pod<T>::value) {
+            m_is.read(reinterpret_cast<char*>(tmp.data()),
+                      static_cast<std::streamsize>(sizeof(T) * n));
+            m_num_bytes_vecs_of_pods += n * sizeof(T);
+        } else {
+            for (auto& v : tmp) visit(v);
+        }
+        vec = Vec(std::move(tmp));
+    }
 };
 
 struct loader : generic_loader {
@@ -355,15 +456,10 @@ struct generic_saver {
     }
 
     template <typename T, typename Allocator>
-    void visit(std::vector<T, Allocator> const& vec) {
-        if constexpr (is_pod<T>::value) {
-            save_vec(m_os, vec);
-        } else {
-            size_t n = vec.size();
-            visit(n);
-            for (auto& v : vec) visit(v);
-        }
-    }
+    void visit(std::vector<T, Allocator> const& vec) { visit_seq(vec); }
+
+    template <typename T>
+    void visit(owning_span<T> const& vec) { visit_seq(vec); }
 
     size_t bytes() {
         return m_os.tellp();
@@ -371,6 +467,19 @@ struct generic_saver {
 
 private:
     std::ostream& m_os;
+
+    template <typename Vec>
+    void visit_seq(Vec const& vec) {
+        using T = typename Vec::value_type;
+        size_t n = vec.size();
+        visit(n);
+        if constexpr (is_pod<T>::value) {
+            m_os.write(reinterpret_cast<char const*>(vec.data()),
+                       static_cast<std::streamsize>(sizeof(T) * n));
+        } else {
+            for (auto const& v : vec) visit(v);
+        }
+    }
 };
 
 struct saver : generic_saver {
@@ -425,25 +534,10 @@ struct sizer {
     }
 
     template <typename T, typename Allocator>
-    void visit(std::vector<T, Allocator>& vec) {
-        if constexpr (is_pod<T>::value) {
-            node n(vec_bytes(vec), m_current->depth + 1, demangle(typeid(std::vector<T>).name()));
-            m_current->children.push_back(n);
-            m_current->bytes += n.bytes;
-        } else {
-            size_t n = vec.size();
-            m_current->bytes += pod_bytes(n);
-            node* parent = m_current;
-            for (auto& v : vec) {
-                node n(0, parent->depth + 1, demangle(typeid(T).name()));
-                parent->children.push_back(n);
-                m_current = &parent->children.back();
-                visit(v);
-                parent->bytes += m_current->bytes;
-            }
-            m_current = parent;
-        }
-    }
+    void visit(std::vector<T, Allocator>& vec) { visit_seq(vec); }
+
+    template <typename T>
+    void visit(owning_span<T>& vec) { visit_seq(vec); }
 
     template <typename Device>
     void print(node const& n, size_t total_bytes, Device& device) const {
@@ -468,6 +562,28 @@ struct sizer {
 private:
     node m_root;
     node* m_current;
+
+    template <typename Vec>
+    void visit_seq(Vec& vec) {
+        using T = typename Vec::value_type;
+        if constexpr (is_pod<T>::value) {
+            node n(vec_bytes(vec), m_current->depth + 1, demangle(typeid(Vec).name()));
+            m_current->children.push_back(n);
+            m_current->bytes += n.bytes;
+        } else {
+            size_t n = vec.size();
+            m_current->bytes += pod_bytes(n);
+            node* parent = m_current;
+            for (auto& v : vec) {
+                node nd(0, parent->depth + 1, demangle(typeid(T).name()));
+                parent->children.push_back(nd);
+                m_current = &parent->children.back();
+                visit(v);
+                parent->bytes += m_current->bytes;
+            }
+            m_current = parent;
+        }
+    }
 };
 
 template <typename T>
@@ -537,6 +653,17 @@ struct contiguous_memory_allocator {
                 vec.resize(n);
                 for (auto& v : vec) visit(v);
             }
+        }
+
+        template <typename T>
+        void visit(owning_span<T>& vec) {
+            size_t n;
+            load_pod(m_is, n);
+            std::vector<T> tmp(n);
+            m_is.read(reinterpret_cast<char*>(tmp.data()),
+                      static_cast<std::streamsize>(sizeof(T) * n));
+            consume(n * sizeof(T));
+            vec = owning_span<T>(std::move(tmp));
         }
 
         uint8_t* end() {
