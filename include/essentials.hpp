@@ -121,38 +121,36 @@ static void save_pod(std::ostream& os, T const& val) {
     os.write(reinterpret_cast<char const*>(&val), sizeof(T));
 }
 
-
-
 /*
     A read-only span with optional shared ownership.
     After construction, only const access is permitted.
 
     Three ownership models via shared_ptr's aliasing constructor:
+
     1. Heap-owned: constructed from an rvalue contiguous range (e.g. vector) —
        the range is heap-allocated inside a shared_ptr, and the span points
        into its buffer.
+
     2. Externally-owned: constructed from a raw pointer + shared_ptr owner
        (e.g., an mmap context) — the span keeps the owner alive.
-    3. Unowned: constructed from a raw pointer without owner — the caller
+
+    3. Un-owned: constructed from a raw pointer without owner — the caller
        must ensure the backing memory outlives the span.
 
-    All models yield the same branch-free const T* access path.
+    All models yield the same branch-free T const* access path.
 */
 template <typename T>
-class owning_span {
-    std::shared_ptr<const T[]> m_data;
-    size_t m_size = 0;
+struct owning_span  //
+{
+    using value_type = T;
+    using size_type = size_t;
+    using const_iterator = T const*;
 
     template <typename R>
     using has_contiguous_data = std::enable_if_t<
         !std::is_same_v<std::decay_t<R>, owning_span> &&
-        std::is_convertible_v<decltype(std::declval<const std::decay_t<R>&>().data()), const T*> &&
+        std::is_convertible_v<decltype(std::declval<const std::decay_t<R>&>().data()), T const*> &&
         std::is_convertible_v<decltype(std::declval<const std::decay_t<R>&>().size()), size_t>>;
-
-public:
-    using value_type = T;
-    using size_type = size_t;
-    using const_iterator = const T*;
 
     owning_span() = default;
 
@@ -168,17 +166,16 @@ public:
     }
 
     /* View into externally-managed memory, optionally keeping owner alive. */
-    owning_span(const T* data, size_t n,
-                std::shared_ptr<const void> owner = {})
-        : m_size(n)
-        , m_data(std::move(owner), data) {}
+    owning_span(T const* data, size_t n, std::shared_ptr<const void> owner = {})
+        : m_data(std::move(owner), data)
+        , m_size(n) {}
 
-    const T* data() const { return m_data.get(); }
+    T const* data() const { return m_data.get(); }
     size_t size() const { return m_size; }
     bool empty() const { return m_size == 0; }
-    const T& operator[](size_t i) const { return m_data[i]; }
-    const T& front() const { return m_data[0]; }
-    const T& back() const { return m_data[m_size - 1]; }
+    T const& operator[](size_t i) const { return m_data[i]; }
+    T const& front() const { return m_data[0]; }
+    T const& back() const { return m_data[m_size - 1]; }
     const_iterator begin() const { return data(); }
     const_iterator end() const { return data() + m_size; }
 
@@ -187,7 +184,14 @@ public:
         std::swap(m_size, other.m_size);
     }
 
-    void clear() { m_data.reset(); m_size = 0; }
+    void clear() {
+        m_data.reset();
+        m_size = 0;
+    }
+
+private:
+    std::shared_ptr<const T[]> m_data;
+    size_t m_size = 0;
 };
 
 template <typename T>
@@ -207,9 +211,7 @@ struct json_lines {
         std::string value;
     };
 
-    void new_line() {
-        m_properties.push_back(std::vector<property>());
-    }
+    void new_line() { m_properties.push_back(std::vector<property>()); }
 
     template <typename T>
     void add(std::string name, T value) {
@@ -231,13 +233,9 @@ struct json_lines {
         out.close();
     }
 
-    void print_line() const {
-        print_line_to(m_properties.back(), std::cerr);
-    }
+    void print_line() const { print_line_to(m_properties.back(), std::cerr); }
 
-    void print() const {
-        print_to(std::cerr);
-    }
+    void print() const { print_to(std::cerr); }
 
 private:
     std::vector<std::vector<property>> m_properties;
@@ -265,9 +263,7 @@ private:
 
 template <typename ClockType, typename DurationType>
 struct timer {
-    void start() {
-        m_start = ClockType::now();
-    }
+    void start() { m_start = ClockType::now(); }
 
     void stop() {
         m_stop = ClockType::now();
@@ -275,13 +271,9 @@ struct timer {
         m_timings.push_back(elapsed.count());
     }
 
-    size_t runs() const {
-        return m_timings.size();
-    }
+    size_t runs() const { return m_timings.size(); }
 
-    void reset() {
-        m_timings.clear();
-    }
+    void reset() { m_timings.clear(); }
 
     // double min() const {
     //     return *std::min_element(m_timings.begin(), m_timings.end());
@@ -309,13 +301,9 @@ struct timer {
         }
     }
 
-    double elapsed() {
-        return std::accumulate(m_timings.begin(), m_timings.end(), 0.0);
-    }
+    double elapsed() { return std::accumulate(m_timings.begin(), m_timings.end(), 0.0); }
 
-    double average() {
-        return elapsed() / runs();
-    }
+    double average() { return elapsed() / runs(); }
 
 private:
     typename ClockType::time_point m_start;
@@ -337,9 +325,7 @@ struct uniform_int_rng {
         : m_rng(seed)
         , m_distr(from, to) {}
 
-    IntType gen() {
-        return m_distr(m_rng);
-    }
+    IntType gen() { return m_distr(m_rng); }
 
 private:
     std::mt19937_64 m_rng;
@@ -352,12 +338,14 @@ struct generic_loader {
         , m_num_bytes_vecs_of_pods(0)
         , m_is(is)
         , m_mmap_base(nullptr)
-        , m_mmap_size(0) {}
+        , m_mmap_size(0)
+        , m_mmap_owner() {}
 
-    void set_mmap(const uint8_t* base, size_t size,
-                  std::shared_ptr<const void> owner = {}) {
-        m_mmap_base = base;
-        m_mmap_size = size;
+    void set_mmap(uint8_t const* mmap_base, size_t mmap_size,
+                  std::shared_ptr<const void> owner = {})  //
+    {
+        m_mmap_base = mmap_base;
+        m_mmap_size = mmap_size;
         m_mmap_owner = std::move(owner);
     }
 
@@ -372,48 +360,30 @@ struct generic_loader {
     }
 
     template <typename T, typename Allocator>
-    void visit(std::vector<T, Allocator>& vec) { visit_seq(vec); }
-
-    template <typename T>
-    void visit(owning_span<T>& vec) { visit_seq(vec); }
-
-    size_t bytes() {
-        return m_is.tellg();
-    }
-
-    size_t bytes_pods() {
-        return m_num_bytes_pods;
-    }
-
-    size_t bytes_vecs_of_pods() {
-        return m_num_bytes_vecs_of_pods;
-    }
-
-    bool is_mmap() const { return m_mmap_base != nullptr; }
-
-private:
-    size_t m_num_bytes_pods;
-    size_t m_num_bytes_vecs_of_pods;
-    std::istream& m_is;
-    const uint8_t* m_mmap_base;
-    size_t m_mmap_size;
-    std::shared_ptr<const void> m_mmap_owner;
-
-    template <typename Vec>
-    void visit_seq(Vec& vec) {
-        using T = typename Vec::value_type;
+    void visit(std::vector<T, Allocator>& vec) {
         size_t n;
         visit(n);
-        if constexpr (is_owning_span_v<Vec>) {
-            if (is_mmap()) {
-                assert(is_pod<T>::value);
-                auto offset = static_cast<size_t>(m_is.tellg());
-                vec = Vec(reinterpret_cast<const T*>(m_mmap_base + offset), n,
-                          m_mmap_owner);
-                m_is.seekg(static_cast<std::streamoff>(offset + n * sizeof(T)));
-                m_num_bytes_vecs_of_pods += n * sizeof(T);
-                return;
-            }
+        vec.resize(n);
+        if constexpr (is_pod<T>::value) {
+            m_is.read(reinterpret_cast<char*>(vec.data()),
+                      static_cast<std::streamsize>(sizeof(T) * n));
+            m_num_bytes_vecs_of_pods += n * sizeof(T);
+        } else {
+            for (auto& v : vec) visit(v);
+        }
+    }
+
+    template <typename T>
+    void visit(owning_span<T>& vec) {
+        size_t n;
+        visit(n);
+        if (is_mmap()) {
+            assert(is_pod<T>::value);
+            size_t offset = static_cast<size_t>(m_is.tellg());
+            vec = owning_span<T>(reinterpret_cast<T const*>(m_mmap_base + offset), n, m_mmap_owner);
+            m_is.seekg(static_cast<std::streamoff>(offset + n * sizeof(T)));
+            m_num_bytes_vecs_of_pods += n * sizeof(T);
+            return;
         }
         std::vector<T> tmp(n);
         if constexpr (is_pod<T>::value) {
@@ -423,8 +393,21 @@ private:
         } else {
             for (auto& v : tmp) visit(v);
         }
-        vec = Vec(std::move(tmp));
+        vec = std::move(tmp);
     }
+
+    size_t bytes() { return m_is.tellg(); }
+    size_t bytes_pods() { return m_num_bytes_pods; }
+    size_t bytes_vecs_of_pods() { return m_num_bytes_vecs_of_pods; }
+    bool is_mmap() const { return m_mmap_base != nullptr; }
+
+private:
+    size_t m_num_bytes_pods;
+    size_t m_num_bytes_vecs_of_pods;
+    std::istream& m_is;
+    uint8_t const* m_mmap_base;
+    size_t m_mmap_size;
+    std::shared_ptr<const void> m_mmap_owner;
 };
 
 struct loader : generic_loader {
@@ -456,14 +439,16 @@ struct generic_saver {
     }
 
     template <typename T, typename Allocator>
-    void visit(std::vector<T, Allocator> const& vec) { visit_seq(vec); }
+    void visit(std::vector<T, Allocator> const& vec) {
+        visit_seq(vec);
+    }
 
     template <typename T>
-    void visit(owning_span<T> const& vec) { visit_seq(vec); }
-
-    size_t bytes() {
-        return m_os.tellp();
+    void visit(owning_span<T> const& vec) {
+        visit_seq(vec);
     }
+
+    size_t bytes() { return m_os.tellp(); }
 
 private:
     std::ostream& m_os;
@@ -534,10 +519,14 @@ struct sizer {
     }
 
     template <typename T, typename Allocator>
-    void visit(std::vector<T, Allocator>& vec) { visit_seq(vec); }
+    void visit(std::vector<T, Allocator>& vec) {
+        visit_seq(vec);
+    }
 
     template <typename T>
-    void visit(owning_span<T>& vec) { visit_seq(vec); }
+    void visit(owning_span<T>& vec) {
+        visit_seq(vec);
+    }
 
     template <typename Device>
     void print(node const& n, size_t total_bytes, Device& device) const {
@@ -555,9 +544,7 @@ struct sizer {
         print(m_root, bytes(), device);
     }
 
-    size_t bytes() const {
-        return m_root.bytes;
-    }
+    size_t bytes() const { return m_root.bytes; }
 
 private:
     node m_root;
@@ -628,9 +615,7 @@ struct contiguous_memory_allocator {
             }
         }
 
-        ~visitor() {
-            m_is.close();
-        }
+        ~visitor() { m_is.close(); }
 
         template <typename T>
         void visit(T& val) {
@@ -666,13 +651,9 @@ struct contiguous_memory_allocator {
             vec = owning_span<T>(std::move(tmp));
         }
 
-        uint8_t* end() {
-            return m_end;
-        }
+        uint8_t* end() { return m_end; }
 
-        size_t size() const {
-            return m_size;
-        }
+        size_t size() const { return m_size; }
 
         size_t allocated() const {
             assert(m_end >= m_begin);
@@ -712,21 +693,13 @@ struct contiguous_memory_allocator {
         return l.bytes();
     }
 
-    ~contiguous_memory_allocator() {
-        free(m_begin);
-    }
+    ~contiguous_memory_allocator() { free(m_begin); }
 
-    uint8_t* begin() {
-        return m_begin;
-    }
+    uint8_t* begin() { return m_begin; }
 
-    uint8_t* end() {
-        return m_end;
-    }
+    uint8_t* end() { return m_end; }
 
-    size_t size() const {
-        return m_size;
-    }
+    size_t size() const { return m_size; }
 
 private:
     uint8_t* m_begin;
@@ -816,13 +789,9 @@ struct directory {
         }
     }
 
-    std::string const& name() const {
-        return m_name;
-    }
+    std::string const& name() const { return m_name; }
 
-    int items() const {
-        return m_n;
-    }
+    int items() const { return m_n; }
 
     struct iterator {
         iterator(directory const* d, int i)
@@ -838,30 +807,20 @@ struct directory {
             return fn;
         }
 
-        void operator++() {
-            ++m_i;
-        }
+        void operator++() { ++m_i; }
 
-        bool operator==(iterator const& rhs) const {
-            return m_i == rhs.m_i;
-        }
+        bool operator==(iterator const& rhs) const { return m_i == rhs.m_i; }
 
-        bool operator!=(iterator const& rhs) const {
-            return !(*this == rhs);
-        }
+        bool operator!=(iterator const& rhs) const { return !(*this == rhs); }
 
     private:
         directory const* m_d;
         int m_i;
     };
 
-    iterator begin() {
-        return iterator(this, 0);
-    }
+    iterator begin() { return iterator(this, 0); }
 
-    iterator end() {
-        return iterator(this, items());
-    }
+    iterator end() { return iterator(this, items()); }
 
 private:
     std::string m_name;

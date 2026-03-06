@@ -81,9 +81,7 @@ struct complex {
         for (auto const& obj : m_data) obj.print();
     }
 
-    // contiguous_memory_allocator& get_allocator() {
-    //     return m_allocator;
-    // }
+    contiguous_memory_allocator& get_allocator() { return m_allocator; }
 
     template <typename Visitor>
     void visit(Visitor& visitor) {
@@ -95,10 +93,10 @@ struct complex {
     }
 
 private:
-    // contiguous_memory_allocator m_allocator;
-    std::vector<value_type
-                // allocator<value_type>
-                >
+    contiguous_memory_allocator m_allocator;
+    std::vector<value_type,            //
+                allocator<value_type>  //
+                >                      //
         m_data;
 
     template <typename Visitor, typename F>
@@ -131,11 +129,11 @@ struct wrapper {
         visit(visitor, *this);
     }
 
-    /* This function and the allocator are the only two things to add
-    to use a custom memory allocator. */
-    contiguous_memory_allocator& get_allocator() {
-        return m_allocator;
-    }
+    /*
+        This function and the allocator are the only two things to add
+        to use a custom memory allocator.
+    */
+    contiguous_memory_allocator& get_allocator() { return m_allocator; }
 
 private:
     contiguous_memory_allocator m_allocator;
@@ -154,22 +152,22 @@ int main() {
     char const* filename = "./.tmp.bin";
     size_t bytes = 0;
 
-    // {
-    //     complex c(n);
-    //     bytes = save(c, filename);
-    //     std::cout << "written bytes = " << bytes << std::endl;
-    //     c.print();
-    // }
+    {
+        complex c(n);
+        bytes = save(c, filename);
+        std::cout << "written bytes = " << bytes << std::endl;
+        c.print();
+    }
 
-    // complex c;
-    // {
-    //     std::cout << "====" << std::endl;
-    //     bytes = load_with_custom_memory_allocation(c, filename);
-    //     // bytes = load(c, filename);
-    //     std::cout << "read bytes = " << bytes << std::endl;
-    //     std::remove(filename);
-    // }
-    // c.print();
+    complex c;
+    {
+        std::cout << "====" << std::endl;
+        bytes = load_with_custom_memory_allocation(c, filename);
+        // bytes = load(c, filename);
+        std::cout << "read bytes = " << bytes << std::endl;
+        std::remove(filename);
+    }
+    c.print();
 
     {
         wrapper w(n);
