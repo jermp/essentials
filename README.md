@@ -1,3 +1,5 @@
+[![Build](https://github.com/jermp/essentials/actions/workflows/build.yml/badge.svg)](https://github.com/jermp/essentials/actions/workflows/build.yml)
+
 C++ Essentials
 ==============
 
@@ -40,7 +42,7 @@ What's inside?
 * Benchmarking facilities, including: messages displaying local time,
 configurable timer class, function to prevent code elision by compiler,
 simple creation and printing of json documents.
-* Functions to serialize-to and load-from disk data structures.
+* Functions to serialize-to and load/mmap-from disk data structures.
 * Functions to compute the number of bytes consumed by data structures.
 * Support for creating, removing, and iterate inside directories.
 
