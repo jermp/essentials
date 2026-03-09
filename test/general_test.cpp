@@ -64,18 +64,13 @@ void test_type_traits() {
 void test_advanced_timer() {
     essentials::timer_type t;
 
-    // Simulate 5 fast runs and 1 slow run (outlier)
+    uint64_t ignore = 0;
     for (int i = 0; i < 6; ++i) {
         t.start();
-        if (i == 0) {
-            for (int j = 0; j < 1000000; ++j)
-                ;  // Slow run
-        } else {
-            for (int j = 0; j < 100; ++j)
-                ;  // Fast run
-        }
+        for (int j = 0; j < 10000000; ++j) ignore ^= j;
         t.stop();
     }
+    essentials::do_not_optimize_away(ignore);
 
     assert(t.runs() == 6);
 
