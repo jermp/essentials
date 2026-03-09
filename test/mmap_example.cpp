@@ -62,10 +62,9 @@ int main() {
         // The payload pointer should be slightly offset from the mmap_base
         // because the ID (42) and the vector size (5) were saved before the actual array data.
         size_t expected_offset = sizeof(uint32_t) + sizeof(size_t);
-        std::cout << "Expected offset:     " << expected_offset << " bytes\n";
+        std::cout << "Expected offset:     " << expected_offset << " bytes" << std::endl;
     }
 
-    std::cout << "\nProgram complete. Memory safely unmapped.\n";
     std::remove(filename);
 
     return 0;

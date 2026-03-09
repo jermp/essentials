@@ -355,6 +355,7 @@ struct generic_loader {
 
     template <typename T, typename Allocator>
     void visit(std::vector<T, Allocator>& vec) {
+        assert(!is_mmap());
         size_t n;
         visit(n);
         vec.resize(n);
