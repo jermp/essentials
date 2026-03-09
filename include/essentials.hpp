@@ -738,7 +738,7 @@ static std::shared_ptr<const void> mmap(T& data_structure, char const* filename)
     }
 
     uint8_t const* mmap_base =
-        static_cast<uint8_t const*>(::mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, 0));
+        static_cast<uint8_t const*>(::mmap(nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0));
     if (mmap_base == MAP_FAILED) {
         std::cerr << "mmap failed\n";
         close(fd);
