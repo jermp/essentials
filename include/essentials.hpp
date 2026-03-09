@@ -18,6 +18,8 @@
 #include <sys/resource.h>
 #include <cassert>
 #include <memory>
+#include <fcntl.h>
+#include <sys/mman.h>
 
 #ifdef __GNUG__
 #include <cxxabi.h>  // for name demangling
@@ -105,14 +107,6 @@ template <typename T>
 static void load_pod(std::istream& is, T& val) {
     static_assert(is_pod<T>::value);
     is.read(reinterpret_cast<char*>(&val), sizeof(T));
-}
-
-template <typename T, typename Allocator>
-static void load_vec(std::istream& is, std::vector<T, Allocator>& vec) {
-    size_t n;
-    load_pod(is, n);
-    vec.resize(n);
-    is.read(reinterpret_cast<char*>(vec.data()), static_cast<std::streamsize>(sizeof(T) * n));
 }
 
 template <typename T>
@@ -630,7 +624,11 @@ struct contiguous_memory_allocator {
         void visit(std::vector<T, Allocator>& vec) {
             if constexpr (is_pod<T>::value) {
                 vec = std::vector<T, Allocator>(make_allocator<T>());
-                load_vec(m_is, vec);
+                size_t n;
+                load_pod(m_is, n);
+                vec.resize(n);
+                m_is.read(reinterpret_cast<char*>(vec.data()),
+                          static_cast<std::streamsize>(sizeof(T) * n));
                 consume(vec.size() * sizeof(T));
             } else {
                 size_t n;
@@ -722,6 +720,44 @@ static size_t load(T& data_structure, char const* filename) {
 template <typename T>
 static size_t load_with_custom_memory_allocation(T& data_structure, char const* filename) {
     return data_structure.get_allocator().allocate(data_structure, filename);
+}
+
+template <typename T>
+static std::shared_ptr<const void> mmap(T& data_structure, char const* filename) {
+    int fd = open(filename, O_RDONLY);
+    if (fd == -1) {
+        std::cerr << "Failed to open file for mmap\n";
+        return nullptr;
+    }
+
+    size_t file_size = 0;
+    {
+        struct stat sb;
+        fstat(fd, &sb);
+        file_size = sb.st_size;
+    }
+
+    uint8_t const* mmap_base =
+        static_cast<uint8_t const*>(::mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, 0));
+    if (mmap_base == MAP_FAILED) {
+        std::cerr << "mmap failed\n";
+        close(fd);
+        return nullptr;
+    }
+    close(fd);
+
+    // Create the "owner" shared_ptr with a custom deleter.
+    // This ensures munmap is called automatically when the last owning_span dies.
+    std::shared_ptr<const void> mmap_owner(mmap_base, [file_size](void const* p) {
+        // std::cout << "[Deleter] Unmapping " << file_size << " bytes from " << p << "\n";
+        ::munmap(const_cast<void*>(p), file_size);
+    });
+
+    loader l(filename);
+    l.set_mmap(mmap_base, file_size, mmap_owner);
+    l.visit(data_structure);
+
+    return mmap_owner;
 }
 
 template <typename T>
