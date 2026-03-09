@@ -723,11 +723,11 @@ static size_t load_with_custom_memory_allocation(T& data_structure, char const* 
 }
 
 template <typename T>
-static std::shared_ptr<const void> mmap(T& data_structure, char const* filename) {
+static size_t mmap(T& data_structure, char const* filename) {
     int fd = open(filename, O_RDONLY);
     if (fd == -1) {
         std::cerr << "Failed to open file for mmap\n";
-        return nullptr;
+        return 0;
     }
 
     size_t file_size = 0;
@@ -742,7 +742,7 @@ static std::shared_ptr<const void> mmap(T& data_structure, char const* filename)
     if (mmap_base == MAP_FAILED) {
         std::cerr << "mmap failed\n";
         close(fd);
-        return nullptr;
+        return 0;
     }
     close(fd);
 
@@ -757,7 +757,7 @@ static std::shared_ptr<const void> mmap(T& data_structure, char const* filename)
     l.set_mmap(mmap_base, file_size, mmap_owner);
     l.visit(data_structure);
 
-    return mmap_owner;
+    return l.bytes();
 }
 
 template <typename T>
