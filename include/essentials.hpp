@@ -372,23 +372,24 @@ struct generic_loader {
     void visit(owning_span<T>& vec) {
         size_t n;
         visit(n);
-        if (is_mmap()) {
-            assert(is_pod<T>::value);
-            size_t offset = static_cast<size_t>(m_is.tellg());
-            vec = owning_span<T>(reinterpret_cast<T const*>(m_mmap_base + offset), n, m_mmap_owner);
-            m_is.seekg(static_cast<std::streamoff>(offset + n * sizeof(T)));
-            m_num_bytes_vecs_of_pods += n * sizeof(T);
-            return;
-        }
-        std::vector<T> tmp(n);
         if constexpr (is_pod<T>::value) {
-            m_is.read(reinterpret_cast<char*>(tmp.data()),
-                      static_cast<std::streamsize>(sizeof(T) * n));
             m_num_bytes_vecs_of_pods += n * sizeof(T);
+            if (is_mmap()) {
+                size_t offset = static_cast<size_t>(m_is.tellg());
+                vec = owning_span<T>(reinterpret_cast<T const*>(m_mmap_base + offset), n,
+                                     m_mmap_owner);
+                m_is.seekg(static_cast<std::streamoff>(offset + n * sizeof(T)));
+            } else {
+                std::vector<T> tmp(n);
+                m_is.read(reinterpret_cast<char*>(tmp.data()),
+                          static_cast<std::streamsize>(n * sizeof(T)));
+                vec = std::move(tmp);
+            }
         } else {
+            std::vector<T> tmp(n);
             for (auto& v : tmp) visit(v);
+            vec = std::move(tmp);
         }
-        vec = std::move(tmp);
     }
 
     size_t bytes() { return m_is.tellg(); }
