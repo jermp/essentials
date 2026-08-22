@@ -47,7 +47,7 @@ static const uint64_t KiB = uint64_t(1) << 10;
 template <typename T>
 struct is_pod {
 #if __cplusplus >= 202002L
-    static constexpr bool value = std::is_trivial<T>::value && std::is_standard_layout<T>::value;
+    static constexpr bool value = std::is_trivially_copyable<T>::value && std::is_trivially_default_constructible<T>::value && std::is_standard_layout<T>::value;
 #else
     static constexpr bool value = std::is_pod<T>::value;
 #endif
