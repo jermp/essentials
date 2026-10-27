@@ -94,11 +94,11 @@ static inline void do_not_optimize_away(T&& value) {
 [[maybe_unused]] static uint64_t maxrss_in_bytes() {
     struct rusage ru;
     if (getrusage(RUSAGE_SELF, &ru) == 0) {
-        // NOTE: ru_maxrss is in kilobytes on Linux, but not on Apple...
+        // NOTE: ru_maxrss is in kibibytes on Linux, but not on Apple...
 #ifdef __APPLE__
         return ru.ru_maxrss;
 #endif
-        return ru.ru_maxrss * 1000;
+        return ru.ru_maxrss * 1024;
     }
     return 0;
 }
